@@ -68,7 +68,7 @@ export const useFinancialSummary = () => {
   const paidExpenses = monthExpenses.filter((e) => e.status === "pago").reduce((s, e) => s + Number(e.amount), 0);
   const pendingExpenses = monthExpenses.filter((e) => e.status !== "pago").reduce((s, e) => s + Number(e.amount), 0);
   const totalExpenses = paidExpenses + pendingExpenses;
-  const openDebts = debts.filter((d) => d.status !== "quitada").reduce((s, d) => s + Number(d.total_amount), 0);
+  const openDebts = debts.filter((d) => d.status !== "quitada").reduce((s, d) => s + Math.max(0, Number(d.total_amount) - (d.paid_installments * Number(d.installment_amount))), 0);
   const balance = totalIncome - totalExpenses;
 
   // Alerts

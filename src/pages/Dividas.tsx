@@ -42,18 +42,12 @@ const Dividas = () => {
 
   const payInstallment = useMutation({
     mutationFn: async (debt: any) => {
-      const expected_total = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
-      const partial_accumulated = expected_total - Number(debt.total_amount);
-      const amount_to_pay = Number(debt.installment_amount) - partial_accumulated;
-
       const newPaid = Math.min(debt.paid_installments + 1, debt.total_installments);
       const newStatus = newPaid >= debt.total_installments ? "quitada" : debt.status;
-      const newTotal = Math.max(0, debt.total_amount - amount_to_pay);
 
       const { error } = await supabase.from("debts").update({ 
         paid_installments: newPaid, 
-        status: newStatus,
-        total_amount: newTotal
+        status: newStatus
       }).eq("id", debt.id);
       if (error) throw error;
     },
@@ -160,7 +154,7 @@ const Dividas = () => {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Restante</p>
-                      <p className="font-semibold">{formatCurrency(Number(d.total_amount))}</p>
+                      <p className="font-semibold">{formatCurrency(remaining)}</p>
                     </div>
                   </div>
                   <div className="flex gap-2 mt-3">

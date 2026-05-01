@@ -48,33 +48,32 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
   }, [open, debt]);
 
   const handleFieldChange = (field: "total_amount" | "installment_amount" | "total_installments" | "paid_installments", value: string) => {
-    const numValue = parseFloat(value) || 0;
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      
-      const remainingInst = Math.max(1, (parseInt(next.total_installments) || 0) - (parseInt(next.paid_installments) || 0));
-      const totalAmt = parseFloat(next.total_amount) || 0;
-      const instAmt = parseFloat(next.installment_amount) || 0;
+      const totalAmt = parseFloat(field === "total_amount" ? value : prev.total_amount) || 0;
+      const instAmt = parseFloat(field === "installment_amount" ? value : prev.installment_amount) || 0;
+      const totalInst = parseInt(field === "total_installments" ? value : prev.total_installments) || 0;
 
       if (field === "total_amount" && totalAmt > 0) {
-        if (remainingInst > 0) {
-          next.installment_amount = (totalAmt / remainingInst).toFixed(2);
+        if (totalInst > 0) {
+          next.installment_amount = (totalAmt / totalInst).toFixed(2);
         }
       } 
-      else if ((field === "total_installments" || field === "paid_installments") && remainingInst > 0) {
+      else if (field === "total_installments" && totalInst > 0) {
         if (totalAmt > 0) {
-          next.installment_amount = (totalAmt / remainingInst).toFixed(2);
+          next.installment_amount = (totalAmt / totalInst).toFixed(2);
         }
       }
       else if (field === "installment_amount" && instAmt > 0) {
         if (totalAmt > 0) {
-          const newRemainingInst = Math.ceil(totalAmt / instAmt);
-          next.total_installments = ((parseInt(next.paid_installments) || 0) + newRemainingInst).toString();
+          next.total_installments = Math.ceil(totalAmt / instAmt).toString();
         }
       }
       return next;
     });
   };
+
+  const currentRemaining = Math.max(0, (parseFloat(form.total_amount) || 0) - ((parseInt(form.paid_installments) || 0) * (parseFloat(form.installment_amount) || 0)));
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -120,7 +119,7 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Saldo Devedor Restante (R$)</Label>
+              <Label>Valor Total da Dívida (Original)</Label>
               <Input type="number" step="0.01" value={form.total_amount} onChange={(e) => handleFieldChange("total_amount", e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -137,6 +136,11 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
               <Label>Parcelas pagas</Label>
               <Input type="number" value={form.paid_installments} onChange={(e) => handleFieldChange("paid_installments", e.target.value)} />
             </div>
+          </div>
+          <div className="bg-primary/5 p-3 rounded-lg border border-primary/20 space-y-1">
+            <Label className="text-primary text-xs uppercase font-bold tracking-wider">Saldo Devedor Restante</Label>
+            <p className="text-2xl font-bold text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentRemaining)}</p>
+            <p className="text-[10px] text-muted-foreground italic">Calculado automaticamente com base nas parcelas pagas.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-2">
