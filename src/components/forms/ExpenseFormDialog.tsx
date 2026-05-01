@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,9 +23,9 @@ const schema = z.object({
   is_recurring: z.boolean(),
 });
 
-interface Props { open: boolean; onOpenChange: (o: boolean) => void; }
+interface Props { open: boolean; onOpenChange: (o: boolean) => void; expense?: any; }
 
-export const ExpenseFormDialog = ({ open, onOpenChange }: Props) => {
+export const ExpenseFormDialog = ({ open, onOpenChange, expense }: Props) => {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -34,26 +34,43 @@ export const ExpenseFormDialog = ({ open, onOpenChange }: Props) => {
     status: "pendente" as const, payment_method: "Pix", is_recurring: false,
   });
 
+  useEffect(() => {
+    if (open) {
+      if (expense) {
+        setForm({
+          name: expense.name, amount: expense.amount.toString(), category: expense.category,
+          due_date: expense.due_date, status: expense.status as any, payment_method: expense.payment_method || "Pix",
+          is_recurring: expense.is_recurring,
+        });
+      } else {
+        setForm({ name: "", amount: "", category: "Outros", due_date: new Date().toISOString().slice(0, 10), status: "pendente", payment_method: "Pix", is_recurring: false });
+      }
+    }
+  }, [open, expense]);
+
   const mutation = useMutation({
     mutationFn: async () => {
       const parsed = schema.parse({ ...form, amount: Number(form.amount), payment_method: form.payment_method || null });
-      const { error } = await supabase.from("expenses").insert([{
-        user_id: user!.id,
-        name: parsed.name,
-        amount: parsed.amount,
-        category: parsed.category,
-        due_date: parsed.due_date,
-        status: parsed.status,
-        payment_method: parsed.payment_method ?? undefined,
-        is_recurring: parsed.is_recurring,
-      }]);
-      if (error) throw error;
+      if (expense) {
+        const { error } = await supabase.from("expenses").update({
+          name: parsed.name, amount: parsed.amount, category: parsed.category,
+          due_date: parsed.due_date, status: parsed.status, payment_method: parsed.payment_method ?? undefined,
+          is_recurring: parsed.is_recurring,
+        }).eq("id", expense.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("expenses").insert([{
+          user_id: user!.id, name: parsed.name, amount: parsed.amount, category: parsed.category,
+          due_date: parsed.due_date, status: parsed.status, payment_method: parsed.payment_method ?? undefined,
+          is_recurring: parsed.is_recurring,
+        }]);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Despesa adicionada");
+      toast.success(expense ? "Despesa atualizada" : "Despesa adicionada");
       qc.invalidateQueries({ queryKey: ["expenses"] });
       onOpenChange(false);
-      setForm({ name: "", amount: "", category: "Outros", due_date: new Date().toISOString().slice(0, 10), status: "pendente", payment_method: "Pix", is_recurring: false });
     },
     onError: (e: any) => toast.error(e.errors?.[0]?.message || e.message),
   });
@@ -61,7 +78,7 @@ export const ExpenseFormDialog = ({ open, onOpenChange }: Props) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nova Despesa</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{expense ? "Editar Despesa" : "Nova Despesa"}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>Nome</Label>

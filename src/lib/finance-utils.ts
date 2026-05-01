@@ -18,6 +18,20 @@ export const startOfMonth = (d = new Date()) =>
 export const endOfMonth = (d = new Date()) =>
   new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
 
+export const getFifthBusinessDay = (date = new Date()) => {
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  let businessDays = 0;
+  while (businessDays < 5) {
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) businessDays++;
+    if (businessDays < 5) d.setDate(d.getDate() + 1);
+  }
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const isInCurrentMonth = (date: string | Date) => {
   const d = parseDate(date);
   const now = new Date();

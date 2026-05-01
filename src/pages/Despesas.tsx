@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
-import { Trash2, TrendingDown, Repeat, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Trash2, TrendingDown, Repeat, CheckCircle2, Clock, AlertCircle, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -22,6 +22,7 @@ const statusConfig = {
 
 const Despesas = () => {
   const [open, setOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
   const [filter, setFilter] = useState<string>("todos");
   const { data: expenses = [], isLoading } = useExpenses();
   const qc = useQueryClient();
@@ -100,9 +101,14 @@ const Despesas = () => {
                         <SelectItem value="atrasado">Atrasado</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="sm" className="ml-auto" onClick={() => del.mutate(e.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="ml-auto flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => { setEditingExpense(e); setOpen(true); }}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => del.mutate(e.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               );
@@ -110,7 +116,7 @@ const Despesas = () => {
           </div>
         )
       }
-      <ExpenseFormDialog open={open} onOpenChange={setOpen} />
+      <ExpenseFormDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingExpense(null); }} expense={editingExpense} />
     </PageHeader>
   );
 };

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/finance-utils";
-import { Trash2, TrendingUp, Repeat } from "lucide-react";
+import { Trash2, TrendingUp, Repeat, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
@@ -17,6 +17,7 @@ const typeLabels: Record<string, string> = {
 
 const Receitas = () => {
   const [open, setOpen] = useState(false);
+  const [editingIncome, setEditingIncome] = useState<any>(null);
   const { data: incomes = [], isLoading } = useIncomes();
   const qc = useQueryClient();
 
@@ -54,15 +55,20 @@ const Receitas = () => {
                 <div className="text-right shrink-0">
                   <p className="font-bold text-success">{formatCurrency(Number(i.amount))}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => del.mutate(i.id)}>
-                  <Trash2 className="w-4 h-4 text-muted-foreground" />
-                </Button>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => { setEditingIncome(i); setOpen(true); }}>
+                    <Edit2 className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => del.mutate(i.id)}>
+                    <Trash2 className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>
         )
       }
-      <IncomeFormDialog open={open} onOpenChange={setOpen} />
+      <IncomeFormDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingIncome(null); }} income={editingIncome} />
     </PageHeader>
   );
 };

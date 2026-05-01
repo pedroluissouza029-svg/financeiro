@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { getFifthBusinessDay } from "@/lib/finance-utils";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obrigatório").max(100),
@@ -20,9 +21,9 @@ const schema = z.object({
   is_recurring: z.boolean(),
 });
 
-interface Props { open: boolean; onOpenChange: (o: boolean) => void; }
+interface Props { open: boolean; onOpenChange: (o: boolean) => void; income?: any; }
 
-export const IncomeFormDialog = ({ open, onOpenChange }: Props) => {
+export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -30,24 +31,47 @@ export const IncomeFormDialog = ({ open, onOpenChange }: Props) => {
     income_type: "salario" as const, is_recurring: false,
   });
 
+  useEffect(() => {
+    if (open) {
+      if (income) {
+        setForm({
+          name: income.name, amount: income.amount.toString(), received_date: income.received_date,
+          income_type: income.income_type as any, is_recurring: income.is_recurring,
+        });
+      } else {
+        setForm({ name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), income_type: "salario", is_recurring: false });
+      }
+    }
+  }, [open, income]);
+
   const mutation = useMutation({
     mutationFn: async () => {
       const parsed = schema.parse({ ...form, amount: Number(form.amount) });
-      const { error } = await supabase.from("incomes").insert([{
-        user_id: user!.id,
-        name: parsed.name,
-        amount: parsed.amount,
-        received_date: parsed.received_date,
-        income_type: parsed.income_type,
-        is_recurring: parsed.is_recurring,
-      }]);
-      if (error) throw error;
+      if (income) {
+        const { error } = await supabase.from("incomes").update({
+          name: parsed.name,
+          amount: parsed.amount,
+          received_date: parsed.received_date,
+          income_type: parsed.income_type,
+          is_recurring: parsed.is_recurring,
+        }).eq("id", income.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("incomes").insert([{
+          user_id: user!.id,
+          name: parsed.name,
+          amount: parsed.amount,
+          received_date: parsed.received_date,
+          income_type: parsed.income_type,
+          is_recurring: parsed.is_recurring,
+        }]);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Receita adicionada");
+      toast.success(income ? "Receita atualizada" : "Receita adicionada");
       qc.invalidateQueries({ queryKey: ["incomes"] });
       onOpenChange(false);
-      setForm({ name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), income_type: "salario", is_recurring: false });
     },
     onError: (e: any) => toast.error(e.errors?.[0]?.message || e.message),
   });
@@ -55,7 +79,7 @@ export const IncomeFormDialog = ({ open, onOpenChange }: Props) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Nova Receita</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{income ? "Editar Receita" : "Nova Receita"}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>Nome</Label>
@@ -68,7 +92,14 @@ export const IncomeFormDialog = ({ open, onOpenChange }: Props) => {
             </div>
             <div className="space-y-2">
               <Label>Data</Label>
-              <Input type="date" value={form.received_date} onChange={(e) => setForm({ ...form, received_date: e.target.value })} />
+              <div className="flex gap-2">
+                <Input type="date" value={form.received_date} onChange={(e) => setForm({ ...form, received_date: e.target.value })} />
+                {form.income_type === "salario" && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, received_date: getFifthBusinessDay() })} title="Preencher com 5º dia útil">
+                    5º dia útil
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">

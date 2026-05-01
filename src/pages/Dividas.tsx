@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency, formatDate } from "@/lib/finance-utils";
-import { Trash2, CreditCard } from "lucide-react";
+import { Trash2, CreditCard, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 
 const statusBadge: Record<string, string> = {
@@ -21,6 +21,7 @@ const statusLabel: Record<string, string> = { em_dia: "Em dia", atrasada: "Atras
 
 const Dividas = () => {
   const [open, setOpen] = useState(false);
+  const [editingDebt, setEditingDebt] = useState<any>(null);
   const { data: debts = [], isLoading } = useDebts();
   const qc = useQueryClient();
 
@@ -85,6 +86,9 @@ const Dividas = () => {
                     <Button size="sm" className="flex-1" disabled={d.status === "quitada"} onClick={() => payInstallment.mutate(d)}>
                       Pagar parcela
                     </Button>
+                    <Button size="icon" variant="ghost" onClick={() => { setEditingDebt(d); setOpen(true); }}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => del.mutate(d.id)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -95,7 +99,7 @@ const Dividas = () => {
           </div>
         )
       }
-      <DebtFormDialog open={open} onOpenChange={setOpen} />
+      <DebtFormDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingDebt(null); }} debt={editingDebt} />
     </PageHeader>
   );
 };

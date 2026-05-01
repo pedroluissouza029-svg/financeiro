@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,9 +21,9 @@ const schema = z.object({
   status: z.enum(["em_dia", "atrasada", "quitada"]),
 });
 
-interface Props { open: boolean; onOpenChange: (o: boolean) => void; }
+interface Props { open: boolean; onOpenChange: (o: boolean) => void; debt?: any; }
 
-export const DebtFormDialog = ({ open, onOpenChange }: Props) => {
+export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -32,6 +32,20 @@ export const DebtFormDialog = ({ open, onOpenChange }: Props) => {
     due_date: new Date().toISOString().slice(0, 10),
     status: "em_dia" as const,
   });
+
+  useEffect(() => {
+    if (open) {
+      if (debt) {
+        setForm({
+          name: debt.name, total_amount: debt.total_amount.toString(), installment_amount: debt.installment_amount.toString(),
+          total_installments: debt.total_installments.toString(), paid_installments: debt.paid_installments.toString(),
+          due_date: debt.due_date, status: debt.status as any,
+        });
+      } else {
+        setForm({ name: "", total_amount: "", installment_amount: "", total_installments: "", paid_installments: "0", due_date: new Date().toISOString().slice(0, 10), status: "em_dia" });
+      }
+    }
+  }, [open, debt]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -42,23 +56,26 @@ export const DebtFormDialog = ({ open, onOpenChange }: Props) => {
         total_installments: Number(form.total_installments),
         paid_installments: Number(form.paid_installments),
       });
-      const { error } = await supabase.from("debts").insert([{
-        user_id: user!.id,
-        name: parsed.name,
-        total_amount: parsed.total_amount,
-        installment_amount: parsed.installment_amount,
-        total_installments: parsed.total_installments,
-        paid_installments: parsed.paid_installments,
-        due_date: parsed.due_date,
-        status: parsed.status,
-      }]);
-      if (error) throw error;
+      if (debt) {
+        const { error } = await supabase.from("debts").update({
+          name: parsed.name, total_amount: parsed.total_amount, installment_amount: parsed.installment_amount,
+          total_installments: parsed.total_installments, paid_installments: parsed.paid_installments,
+          due_date: parsed.due_date, status: parsed.status,
+        }).eq("id", debt.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("debts").insert([{
+          user_id: user!.id, name: parsed.name, total_amount: parsed.total_amount, installment_amount: parsed.installment_amount,
+          total_installments: parsed.total_installments, paid_installments: parsed.paid_installments,
+          due_date: parsed.due_date, status: parsed.status,
+        }]);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Dívida adicionada");
+      toast.success(debt ? "Dívida atualizada" : "Dívida adicionada");
       qc.invalidateQueries({ queryKey: ["debts"] });
       onOpenChange(false);
-      setForm({ name: "", total_amount: "", installment_amount: "", total_installments: "", paid_installments: "0", due_date: new Date().toISOString().slice(0, 10), status: "em_dia" });
     },
     onError: (e: any) => toast.error(e.errors?.[0]?.message || e.message),
   });
@@ -66,7 +83,7 @@ export const DebtFormDialog = ({ open, onOpenChange }: Props) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nova Dívida</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{debt ? "Editar Dívida" : "Nova Dívida"}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>Nome</Label>
