@@ -47,6 +47,35 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
     }
   }, [open, debt]);
 
+  const handleFieldChange = (field: "total_amount" | "installment_amount" | "total_installments", value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      
+      if (field === "total_amount" && numValue > 0) {
+        const totalInst = parseInt(prev.total_installments) || 0;
+        if (totalInst > 0) {
+          next.installment_amount = (numValue / totalInst).toFixed(2);
+        } else if (parseFloat(prev.installment_amount) > 0) {
+          next.total_installments = Math.ceil(numValue / parseFloat(prev.installment_amount)).toString();
+        }
+      } 
+      else if (field === "total_installments" && numValue > 0) {
+        const totalAmt = parseFloat(prev.total_amount) || 0;
+        if (totalAmt > 0) {
+          next.installment_amount = (totalAmt / numValue).toFixed(2);
+        }
+      }
+      else if (field === "installment_amount" && numValue > 0) {
+        const totalAmt = parseFloat(prev.total_amount) || 0;
+        if (totalAmt > 0) {
+          next.total_installments = Math.ceil(totalAmt / numValue).toString();
+        }
+      }
+      return next;
+    });
+  };
+
   const mutation = useMutation({
     mutationFn: async () => {
       const parsed = schema.parse({
@@ -92,17 +121,17 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Valor total (R$)</Label>
-              <Input type="number" step="0.01" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
+              <Input type="number" step="0.01" value={form.total_amount} onChange={(e) => handleFieldChange("total_amount", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Valor da parcela (R$)</Label>
-              <Input type="number" step="0.01" value={form.installment_amount} onChange={(e) => setForm({ ...form, installment_amount: e.target.value })} />
+              <Input type="number" step="0.01" value={form.installment_amount} onChange={(e) => handleFieldChange("installment_amount", e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Total de parcelas</Label>
-              <Input type="number" value={form.total_installments} onChange={(e) => setForm({ ...form, total_installments: e.target.value })} />
+              <Input type="number" value={form.total_installments} onChange={(e) => handleFieldChange("total_installments", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Parcelas pagas</Label>
