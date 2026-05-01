@@ -43,6 +43,12 @@ const Cartoes = () => {
   const cartoes = expenses.filter(e => e.category === "Cartão de Crédito" || e.category === "Cartão");
   const filtered = filter === "todos" ? cartoes : cartoes.filter((e) => e.status === filter);
 
+  const groupedCards = filtered.reduce((acc, e) => {
+    if (!acc[e.name]) acc[e.name] = [];
+    acc[e.name].push(e);
+    return acc;
+  }, {} as Record<string, typeof filtered>);
+
   return (
     <PageHeader title="Cartões de Crédito" description="Acompanhe suas faturas" action={{ label: "Nova fatura", onClick: () => setOpen(true) }}>
       <div className="flex gap-2 flex-wrap">
@@ -59,56 +65,65 @@ const Cartoes = () => {
             <p className="text-muted-foreground">Nenhuma fatura encontrada</p>
           </Card>
         ) : (
-          <div className="grid gap-3">
-            {filtered.map((e) => {
-              const cfg = statusConfig[e.status as keyof typeof statusConfig];
-              const StIcon = cfg.icon;
-              const days = daysUntil(e.due_date);
-              return (
-                <Card key={e.id} className="p-4 hover:shadow-soft transition-smooth">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${cfg.className}`}>
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold truncate">Fatura {e.name}</p>
-                        {e.is_recurring && <Badge variant="outline" className="text-xs gap-1"><Repeat className="w-3 h-3" /></Badge>}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Vencimento {formatDate(e.due_date)}
-                        {e.status !== "pago" && (
-                          <span className={days < 0 ? "text-destructive ml-1" : days <= 3 ? "text-warning ml-1" : "ml-1"}>
-                            • {days < 0 ? `${Math.abs(days)}d atrasada` : days === 0 ? "hoje" : `em ${days}d`}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold">{formatCurrency(Number(e.amount))}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                    <Button 
-                      variant={e.status === "pago" ? "secondary" : "default"} 
-                      size="sm" 
-                      onClick={() => updateStatus.mutate({ id: e.id, status: e.status === "pago" ? "pendente" : "pago" })}
-                      className="h-8 text-xs"
-                    >
-                      {e.status === "pago" ? "Reverter Pagamento" : "Marcar como Pago"}
-                    </Button>
-                    <div className="ml-auto flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => { setEditingInvoice(e); setOpen(true); }}>
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => del.mutate(e.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+          <div className="space-y-8">
+            {Object.entries(groupedCards).map(([cardName, invoices]) => (
+              <div key={cardName} className="space-y-3">
+                <h3 className="text-lg font-bold flex items-center gap-2 px-1">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Cartão {cardName}
+                </h3>
+                <div className="grid gap-3">
+                  {invoices.map((e) => {
+                    const cfg = statusConfig[e.status as keyof typeof statusConfig];
+                    const days = daysUntil(e.due_date);
+                    return (
+                      <Card key={e.id} className="p-4 hover:shadow-soft transition-smooth">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${cfg.className}`}>
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold truncate">Fatura {formatDate(e.due_date).substring(3)}</p>
+                              {e.is_recurring && <Badge variant="outline" className="text-xs gap-1"><Repeat className="w-3 h-3" /></Badge>}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Vencimento {formatDate(e.due_date)}
+                              {e.status !== "pago" && (
+                                <span className={days < 0 ? "text-destructive ml-1" : days <= 3 ? "text-warning ml-1" : "ml-1"}>
+                                  • {days < 0 ? `${Math.abs(days)}d atrasada` : days === 0 ? "hoje" : `em ${days}d`}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-bold">{formatCurrency(Number(e.amount))}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                          <Button 
+                            variant={e.status === "pago" ? "secondary" : "default"} 
+                            size="sm" 
+                            onClick={() => updateStatus.mutate({ id: e.id, status: e.status === "pago" ? "pendente" : "pago" })}
+                            className="h-8 text-xs"
+                          >
+                            {e.status === "pago" ? "Reverter Pagamento" : "Marcar como Pago"}
+                          </Button>
+                          <div className="ml-auto flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingInvoice(e); setOpen(true); }}>
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => del.mutate(e.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )
       }
