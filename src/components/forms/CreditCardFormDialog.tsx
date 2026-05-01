@@ -33,16 +33,20 @@ export const CreditCardFormDialog = ({ open, onOpenChange, invoice }: Props) => 
     due_date: new Date().toISOString().slice(0, 10),
     status: "pendente" as const, payment_method: "Boleto", is_recurring: false,
   });
+  const [isCustom, setIsCustom] = useState(false);
 
   useEffect(() => {
     if (open) {
       if (invoice) {
+        const isKnown = creditCardBanks.includes(invoice.name);
+        setIsCustom(!isKnown);
         setForm({
           name: invoice.name, amount: invoice.amount.toString(), category: "Cartão de Crédito",
           due_date: invoice.due_date, status: invoice.status as any, payment_method: invoice.payment_method || "Boleto",
           is_recurring: invoice.is_recurring,
         });
       } else {
+        setIsCustom(false);
         setForm({ name: "Nubank", amount: "", category: "Cartão de Crédito", due_date: new Date().toISOString().slice(0, 10), status: "pendente", payment_method: "Boleto", is_recurring: false });
       }
     }
@@ -82,11 +86,35 @@ export const CreditCardFormDialog = ({ open, onOpenChange, invoice }: Props) => 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Banco</Label>
-              <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{creditCardBanks.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label>Banco / Operadora</Label>
+              {isCustom ? (
+                <div className="flex gap-2">
+                  <Input 
+                    value={form.name} 
+                    onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                    placeholder="Digite o banco..."
+                    autoFocus
+                  />
+                  <Button type="button" variant="outline" onClick={() => { setIsCustom(false); setForm({ ...form, name: "Nubank" }); }}>
+                    Lista
+                  </Button>
+                </div>
+              ) : (
+                <Select value={form.name} onValueChange={(v) => {
+                  if (v === "Outro") {
+                    setIsCustom(true);
+                    setForm({ ...form, name: "" });
+                  } else {
+                    setForm({ ...form, name: v });
+                  }
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {creditCardBanks.map(b => b !== "Outro" && <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    <SelectItem value="Outro">Outro (Digitar manual)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Valor da Fatura (R$)</Label>
