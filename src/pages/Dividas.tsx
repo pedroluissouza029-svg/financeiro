@@ -12,6 +12,7 @@ import { formatCurrency, formatDate } from "@/lib/finance-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, CreditCard, Edit2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ const Dividas = () => {
   const [editingDebt, setEditingDebt] = useState<any>(null);
   const [partialDebt, setPartialDebt] = useState<any>(null);
   const [partialAmount, setPartialAmount] = useState("");
+  const [amortization, setAmortization] = useState<"parcela" | "prazo">("parcela");
   const { data: debts = [], isLoading } = useDebts();
   const qc = useQueryClient();
 
@@ -49,13 +51,41 @@ const Dividas = () => {
   });
 
   const payPartial = useMutation({
-    mutationFn: async ({ debt, amount }: { debt: any, amount: number }) => {
+    mutationFn: async ({ debt, amount, type }: { debt: any, amount: number, type: "parcela" | "prazo" }) => {
+      const current_remaining = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
+      const new_remaining = Math.max(0, current_remaining - amount);
       const newTotal = Math.max(0, debt.total_amount - amount);
-      const { error } = await supabase.from("debts").update({ total_amount: newTotal }).eq("id", debt.id);
+      
+      let new_total_inst = debt.total_installments;
+      let new_inst_amount = Number(debt.installment_amount);
+      let new_status = debt.status;
+      let new_paid = debt.paid_installments;
+
+      if (new_remaining === 0) {
+        new_status = "quitada";
+        new_paid = debt.total_installments;
+      } else {
+        if (type === "parcela") {
+          const rem_inst = debt.total_installments - debt.paid_installments;
+          new_inst_amount = new_remaining / rem_inst;
+        } else {
+          const rem_inst = Math.ceil(new_remaining / Number(debt.installment_amount));
+          new_total_inst = debt.paid_installments + rem_inst;
+          new_inst_amount = new_remaining / rem_inst;
+        }
+      }
+
+      const { error } = await supabase.from("debts").update({ 
+        total_installments: new_total_inst,
+        installment_amount: new_inst_amount,
+        status: new_status,
+        paid_installments: new_paid,
+        total_amount: newTotal
+      }).eq("id", debt.id);
       if (error) throw error;
     },
     onSuccess: () => { 
-      toast.success("Pagamento parcial abatido com sucesso!"); 
+      toast.success("Abatimento inteligente realizado!"); 
       qc.invalidateQueries({ queryKey: ["debts"] }); 
       setPartialDebt(null);
       setPartialAmount("");
@@ -74,7 +104,7 @@ const Dividas = () => {
           <div className="grid gap-4 md:grid-cols-2">
             {debts.map((d) => {
               const progress = (d.paid_installments / d.total_installments) * 100;
-              const remaining = Math.max(0, Number(d.total_amount) - (d.paid_installments * Number(d.installment_amount)));
+              const remaining = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
               return (
                 <Card key={d.id} className="p-5 hover:shadow-soft transition-smooth">
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -125,20 +155,30 @@ const Dividas = () => {
       
       <Dialog open={!!partialDebt} onOpenChange={(o) => !o && setPartialDebt(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Pagamento Parcial</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Abatimento Inteligente</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Valor pago (R$)</Label>
+              <Label>Valor do abatimento / pago (R$)</Label>
               <Input type="number" step="0.01" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} placeholder="Ex: 50.00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Como deseja recalcular a dívida?</Label>
+              <Select value={amortization} onValueChange={(v: any) => setAmortization(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="parcela">Reduzir o valor das próximas parcelas</SelectItem>
+                  <SelectItem value="prazo">Reduzir o número de parcelas (Prazo)</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-2">
-                O valor informado será deduzido do montante total da dívida, mantendo o número de parcelas.
+                O sistema irá recalcular automaticamente o restante da dívida conforme a sua escolha.
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPartialDebt(null)}>Cancelar</Button>
-            <Button onClick={() => payPartial.mutate({ debt: partialDebt, amount: Number(partialAmount) })} disabled={!partialAmount || payPartial.isPending}>
-              {payPartial.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Abater Valor
+            <Button onClick={() => payPartial.mutate({ debt: partialDebt, amount: Number(partialAmount), type: amortization })} disabled={!partialAmount || payPartial.isPending}>
+              {payPartial.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Recalcular
             </Button>
           </DialogFooter>
         </DialogContent>
