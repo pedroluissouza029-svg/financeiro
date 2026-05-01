@@ -42,7 +42,16 @@ export const DebtFormDialog = ({ open, onOpenChange }: Props) => {
         total_installments: Number(form.total_installments),
         paid_installments: Number(form.paid_installments),
       });
-      const { error } = await supabase.from("debts").insert({ ...parsed, user_id: user!.id });
+      const { error } = await supabase.from("debts").insert([{
+        user_id: user!.id,
+        name: parsed.name,
+        total_amount: parsed.total_amount,
+        installment_amount: parsed.installment_amount,
+        total_installments: parsed.total_installments,
+        paid_installments: parsed.paid_installments,
+        due_date: parsed.due_date,
+        status: parsed.status,
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {

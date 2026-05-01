@@ -37,7 +37,16 @@ export const ExpenseFormDialog = ({ open, onOpenChange }: Props) => {
   const mutation = useMutation({
     mutationFn: async () => {
       const parsed = schema.parse({ ...form, amount: Number(form.amount), payment_method: form.payment_method || null });
-      const { error } = await supabase.from("expenses").insert({ ...parsed, user_id: user!.id });
+      const { error } = await supabase.from("expenses").insert([{
+        user_id: user!.id,
+        name: parsed.name,
+        amount: parsed.amount,
+        category: parsed.category,
+        due_date: parsed.due_date,
+        status: parsed.status,
+        payment_method: parsed.payment_method ?? undefined,
+        is_recurring: parsed.is_recurring,
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {

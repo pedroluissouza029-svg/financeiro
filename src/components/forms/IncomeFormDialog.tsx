@@ -33,7 +33,14 @@ export const IncomeFormDialog = ({ open, onOpenChange }: Props) => {
   const mutation = useMutation({
     mutationFn: async () => {
       const parsed = schema.parse({ ...form, amount: Number(form.amount) });
-      const { error } = await supabase.from("incomes").insert({ ...parsed, user_id: user!.id });
+      const { error } = await supabase.from("incomes").insert([{
+        user_id: user!.id,
+        name: parsed.name,
+        amount: parsed.amount,
+        received_date: parsed.received_date,
+        income_type: parsed.income_type,
+        is_recurring: parsed.is_recurring,
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {
