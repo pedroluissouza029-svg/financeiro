@@ -2,7 +2,7 @@ import { useExpenses, useDebts } from "@/hooks/useFinanceData";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
+import { formatCurrency, formatDate, daysUntil, parseDate } from "@/lib/finance-utils";
 import { Calendar as CalendarIcon, CreditCard, TrendingDown } from "lucide-react";
 
 const Calendario = () => {
@@ -17,7 +17,7 @@ const Calendario = () => {
     ...debts.filter(d => d.status !== "quitada").map(d => ({
       id: d.id, name: d.name, date: d.due_date, amount: Number(d.installment_amount), kind: "debt" as const, status: d.status,
     })),
-  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  ].sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
 
   return (
     <PageHeader title="Calendário de contas" description="Próximos vencimentos">
@@ -39,8 +39,8 @@ const Calendario = () => {
                   soon ? "bg-warning/10 text-warning" :
                   "bg-accent text-accent-foreground"
                 }`}>
-                  <span className="text-xs font-medium">{new Date(item.date).toLocaleString("pt-BR", { month: "short" }).replace(".", "")}</span>
-                  <span className="text-lg font-bold leading-none">{new Date(item.date).getDate()}</span>
+                  <span className="text-xs font-medium">{parseDate(item.date).toLocaleString("pt-BR", { month: "short" }).replace(".", "")}</span>
+                  <span className="text-lg font-bold leading-none">{parseDate(item.date).getDate()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
