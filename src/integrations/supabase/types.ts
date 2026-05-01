@@ -14,7 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      debts: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          installment_amount: number
+          name: string
+          paid_installments: number
+          status: Database["public"]["Enums"]["debt_status"]
+          total_amount: number
+          total_installments: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_amount: number
+          name: string
+          paid_installments?: number
+          status?: Database["public"]["Enums"]["debt_status"]
+          total_amount: number
+          total_installments: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_amount?: number
+          name?: string
+          paid_installments?: number
+          status?: Database["public"]["Enums"]["debt_status"]
+          total_amount?: number
+          total_installments?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          due_date: string
+          id: string
+          is_recurring: boolean
+          name: string
+          payment_method: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          due_date: string
+          id?: string
+          is_recurring?: boolean
+          name: string
+          payment_method?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          is_recurring?: boolean
+          name?: string
+          payment_method?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      incomes: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          income_type: Database["public"]["Enums"]["income_type"]
+          is_recurring: boolean
+          name: string
+          received_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          income_type?: Database["public"]["Enums"]["income_type"]
+          is_recurring?: boolean
+          name: string
+          received_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          income_type?: Database["public"]["Enums"]["income_type"]
+          is_recurring?: boolean
+          name?: string
+          received_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +142,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      debt_status: "em_dia" | "atrasada" | "quitada"
+      expense_status: "pago" | "pendente" | "atrasado"
+      income_type: "salario" | "freelance" | "investimento" | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +271,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      debt_status: ["em_dia", "atrasada", "quitada"],
+      expense_status: ["pago", "pendente", "atrasado"],
+      income_type: ["salario", "freelance", "investimento", "outro"],
+    },
   },
 } as const
