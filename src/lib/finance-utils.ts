@@ -55,8 +55,10 @@ export const getFinancialStatus = (balance: number): FinancialStatus => {
 };
 
 export const expenseCategories = [
-  "Moradia", "Alimentação", "Transporte", "Saúde", "Educação",
-  "Lazer", "Compras", "Assinaturas", "Cartão", "Cartão de Crédito", "Outros",
+  "Moradia", "Energia", "Água", "Internet", "Gás", "Telefone",
+  "Alimentação", "Supermercado", "Transporte", "Veículo",
+  "Saúde", "Educação", "Lazer", "Compras", "Vestuário", "Beleza", 
+  "Pet", "Seguros", "Impostos", "Assinaturas", "Cartão", "Cartão de Crédito", "Outros",
 ];
 
 export const paymentMethods = [
