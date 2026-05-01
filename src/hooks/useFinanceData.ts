@@ -69,6 +69,11 @@ export const useFinancialSummary = () => {
   const pendingExpenses = monthExpenses.filter((e) => e.status !== "pago").reduce((s, e) => s + Number(e.amount), 0);
   const totalExpenses = paidExpenses + pendingExpenses;
   const openDebts = debts.filter((d) => d.status !== "quitada").reduce((s, d) => s + Number(d.total_amount), 0);
+  
+  const overdueExpenses = expenses.filter((e) => e.status === "atrasado").reduce((s, e) => s + Number(e.amount), 0);
+  const overdueDebts = debts.filter((d) => d.status === "atrasada").reduce((s, d) => s + Number(d.installment_amount), 0);
+  const monthDebtInstallments = debts.filter((d) => d.status !== "quitada" && isInCurrentMonth(d.due_date)).reduce((s, d) => s + Number(d.installment_amount), 0);
+  
   const balance = totalIncome - totalExpenses;
 
   // Alerts
@@ -87,7 +92,7 @@ export const useFinancialSummary = () => {
 
   return {
     totalIncome, paidExpenses, pendingExpenses, totalExpenses,
-    openDebts, balance, alerts,
+    openDebts, overdueExpenses, overdueDebts, monthDebtInstallments, balance, alerts,
     monthIncomes, monthExpenses, debts, expenses, incomes,
   };
 };

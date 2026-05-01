@@ -1,9 +1,11 @@
 import { useFinancialSummary } from "@/hooks/useFinanceData";
-import { formatCurrency, getFinancialStatus } from "@/lib/finance-utils";
+import { formatCurrency, getFinancialStatus, formatDate, isInCurrentMonth } from "@/lib/finance-utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Wallet, AlertCircle, CheckCircle2, AlertTriangle, CreditCard, Clock } from "lucide-react";
-import { useEffect } from "react";
+import { TrendingUp, TrendingDown, Wallet, AlertCircle, CheckCircle2, AlertTriangle, CreditCard, Clock, Receipt, History } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const statusConfig = {
   saudavel: { label: "Saudável", icon: CheckCircle2, className: "bg-success text-success-foreground" },
@@ -12,7 +14,14 @@ const statusConfig = {
 };
 
 const Dashboard = () => {
-  const { totalIncome, paidExpenses, pendingExpenses, openDebts, balance, alerts } = useFinancialSummary();
+  const { 
+    totalIncome, paidExpenses, pendingExpenses, openDebts, 
+    overdueExpenses, overdueDebts, monthDebtInstallments, 
+    balance, alerts, expenses, incomes 
+  } = useFinancialSummary();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportType, setReportType] = useState<"all" | "overdue" | "month">("all");
+  
   const status = getFinancialStatus(balance);
   const StatusIcon = statusConfig[status].icon;
 
@@ -53,11 +62,13 @@ const Dashboard = () => {
       </Card>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={TrendingUp} label="Receita total" value={totalIncome} accent="success" />
-        <KpiCard icon={CheckCircle2} label="Despesas pagas" value={paidExpenses} accent="success" />
-        <KpiCard icon={Clock} label="Despesas pendentes" value={pendingExpenses} accent="warning" />
-        <KpiCard icon={CreditCard} label="Dívidas em aberto" value={openDebts} accent="destructive" />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={TrendingUp} label="Receita total" value={totalIncome} accent="success" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+        <KpiCard icon={CheckCircle2} label="Despesas pagas" value={paidExpenses} accent="success" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+        <KpiCard icon={AlertTriangle} label="Contas em atraso" value={overdueExpenses + overdueDebts} accent="destructive" onClick={() => { setReportType("overdue"); setReportOpen(true); }} />
+        <KpiCard icon={Clock} label="Despesas pendentes" value={pendingExpenses} accent="warning" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+        <KpiCard icon={Receipt} label="Dívidas do mês" value={monthDebtInstallments} accent="warning" onClick={() => { setReportType("month"); setReportOpen(true); }} />
+        <KpiCard icon={CreditCard} label="Saldo devedor total" value={openDebts} accent="destructive" />
       </div>
 
       {/* Alerts */}
@@ -84,6 +95,64 @@ const Dashboard = () => {
           </ul>
         )}
       </Card>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              {reportType === "overdue" ? "Relatório de Contas em Atraso" : 
+               reportType === "month" ? "Dívidas e Contas deste Mês" : 
+               "Histórico de Movimentações"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[
+                  ...incomes.map(i => ({ ...i, type: 'receita', date: i.received_date })),
+                  ...expenses.map(e => ({ ...e, type: 'despesa', date: e.due_date }))
+                ]
+                .filter(item => {
+                  if (reportType === "overdue") return item.status === "atrasado" || item.status === "atrasada";
+                  if (reportType === "month") return isInCurrentMonth(item.date);
+                  return true;
+                })
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs">{formatDate(item.date)}</TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="text-xs">{item.category}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] h-5 ${
+                        item.status === "pago" || item.status === "recebido" ? "border-success text-success bg-success/5" :
+                        item.status === "atrasado" || item.status === "atrasada" ? "border-destructive text-destructive bg-destructive/5" :
+                        "border-warning text-warning bg-warning/5"
+                      }`}>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-right font-bold ${item.type === 'receita' ? 'text-success' : 'text-foreground'}`}>
+                      {item.type === 'receita' ? '+' : '-'}{formatCurrency(item.amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -94,8 +163,11 @@ const accentMap = {
   destructive: "text-destructive bg-destructive/10",
 };
 
-const KpiCard = ({ icon: Icon, label, value, accent }: any) => (
-  <Card className="p-5 hover:shadow-soft transition-smooth">
+const KpiCard = ({ icon: Icon, label, value, accent, onClick }: any) => (
+  <Card 
+    className={`p-5 transition-smooth ${onClick ? 'cursor-pointer hover:shadow-soft hover:border-primary/30 active:scale-95' : ''}`}
+    onClick={onClick}
+  >
     <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accentMap[accent as keyof typeof accentMap]}`}>
       <Icon className="w-5 h-5" />
     </div>
