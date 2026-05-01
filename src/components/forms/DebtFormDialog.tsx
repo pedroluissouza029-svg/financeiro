@@ -47,29 +47,29 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
     }
   }, [open, debt]);
 
-  const handleFieldChange = (field: "total_amount" | "installment_amount" | "total_installments", value: string) => {
+  const handleFieldChange = (field: "total_amount" | "installment_amount" | "total_installments" | "paid_installments", value: string) => {
     const numValue = parseFloat(value) || 0;
     setForm((prev) => {
       const next = { ...prev, [field]: value };
       
-      if (field === "total_amount" && numValue > 0) {
-        const totalInst = parseInt(prev.total_installments) || 0;
-        if (totalInst > 0) {
-          next.installment_amount = (numValue / totalInst).toFixed(2);
-        } else if (parseFloat(prev.installment_amount) > 0) {
-          next.total_installments = Math.ceil(numValue / parseFloat(prev.installment_amount)).toString();
+      const remainingInst = Math.max(1, (parseInt(next.total_installments) || 0) - (parseInt(next.paid_installments) || 0));
+      const totalAmt = parseFloat(next.total_amount) || 0;
+      const instAmt = parseFloat(next.installment_amount) || 0;
+
+      if (field === "total_amount" && totalAmt > 0) {
+        if (remainingInst > 0) {
+          next.installment_amount = (totalAmt / remainingInst).toFixed(2);
         }
       } 
-      else if (field === "total_installments" && numValue > 0) {
-        const totalAmt = parseFloat(prev.total_amount) || 0;
+      else if ((field === "total_installments" || field === "paid_installments") && remainingInst > 0) {
         if (totalAmt > 0) {
-          next.installment_amount = (totalAmt / numValue).toFixed(2);
+          next.installment_amount = (totalAmt / remainingInst).toFixed(2);
         }
       }
-      else if (field === "installment_amount" && numValue > 0) {
-        const totalAmt = parseFloat(prev.total_amount) || 0;
+      else if (field === "installment_amount" && instAmt > 0) {
         if (totalAmt > 0) {
-          next.total_installments = Math.ceil(totalAmt / numValue).toString();
+          const newRemainingInst = Math.ceil(totalAmt / instAmt);
+          next.total_installments = ((parseInt(next.paid_installments) || 0) + newRemainingInst).toString();
         }
       }
       return next;
@@ -120,7 +120,7 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Valor total (R$)</Label>
+              <Label>Saldo Devedor Restante (R$)</Label>
               <Input type="number" step="0.01" value={form.total_amount} onChange={(e) => handleFieldChange("total_amount", e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -135,7 +135,7 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
             </div>
             <div className="space-y-2">
               <Label>Parcelas pagas</Label>
-              <Input type="number" value={form.paid_installments} onChange={(e) => setForm({ ...form, paid_installments: e.target.value })} />
+              <Input type="number" value={form.paid_installments} onChange={(e) => handleFieldChange("paid_installments", e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
