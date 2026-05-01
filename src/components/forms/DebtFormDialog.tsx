@@ -36,8 +36,9 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
   useEffect(() => {
     if (open) {
       if (debt) {
+        const originalTotal = debt.total_amount + (debt.paid_installments * debt.installment_amount);
         setForm({
-          name: debt.name, total_amount: debt.total_amount.toString(), installment_amount: debt.installment_amount.toString(),
+          name: debt.name, total_amount: originalTotal.toString(), installment_amount: debt.installment_amount.toString(),
           total_installments: debt.total_installments.toString(), paid_installments: debt.paid_installments.toString(),
           due_date: debt.due_date, status: debt.status as any,
         });
@@ -51,21 +52,16 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
       const totalAmt = parseFloat(field === "total_amount" ? value : prev.total_amount) || 0;
-      const instAmt = parseFloat(field === "installment_amount" ? value : prev.installment_amount) || 0;
       const totalInst = parseInt(field === "total_installments" ? value : prev.total_installments) || 0;
 
-      if (field === "total_amount" && totalAmt > 0) {
-        if (totalInst > 0) {
+      if (field === "total_amount" || field === "total_installments") {
+        if (totalInst > 0 && totalAmt > 0) {
           next.installment_amount = (totalAmt / totalInst).toFixed(2);
         }
       } 
-      else if (field === "total_installments" && totalInst > 0) {
-        if (totalAmt > 0) {
-          next.installment_amount = (totalAmt / totalInst).toFixed(2);
-        }
-      }
-      else if (field === "installment_amount" && instAmt > 0) {
-        if (totalAmt > 0) {
+      else if (field === "installment_amount") {
+        const instAmt = parseFloat(value) || 0;
+        if (totalAmt > 0 && instAmt > 0) {
           next.total_installments = Math.ceil(totalAmt / instAmt).toString();
         }
       }
@@ -79,7 +75,7 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
     mutationFn: async () => {
       const parsed = schema.parse({
         ...form,
-        total_amount: Number(form.total_amount),
+        total_amount: currentRemaining,
         installment_amount: Number(form.installment_amount),
         total_installments: Number(form.total_installments),
         paid_installments: Number(form.paid_installments),

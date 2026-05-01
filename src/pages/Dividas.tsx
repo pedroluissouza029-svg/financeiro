@@ -42,12 +42,19 @@ const Dividas = () => {
 
   const payInstallment = useMutation({
     mutationFn: async (debt: any) => {
+      const standard_remaining = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
+      const remaining = Number(debt.total_amount);
+      const partial_paid = Math.max(0, Math.round((standard_remaining - remaining) * 100) / 100);
+      const amount_to_pay = Math.max(0, Number(debt.installment_amount) - partial_paid);
+
       const newPaid = Math.min(debt.paid_installments + 1, debt.total_installments);
       const newStatus = newPaid >= debt.total_installments ? "quitada" : debt.status;
+      const newTotal = Math.max(0, Number(debt.total_amount) - amount_to_pay);
 
       const { error } = await supabase.from("debts").update({ 
         paid_installments: newPaid, 
-        status: newStatus
+        status: newStatus,
+        total_amount: newTotal
       }).eq("id", debt.id);
       if (error) throw error;
     },
@@ -121,12 +128,11 @@ const Dividas = () => {
           <div className="grid gap-4 md:grid-cols-2">
             {debts.map((d) => {
               const progress = (d.paid_installments / d.total_installments) * 100;
-              const expected_total = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
-              const remaining = Math.max(0, Number(d.total_amount) - (d.paid_installments * Number(d.installment_amount)));
+              const standard_remaining = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
+              const remaining = Number(d.total_amount);
               
-              const diff = Math.round((expected_total - Number(d.total_amount)) * 100) / 100;
-              const partial = Math.max(0, diff);
-              const current_installment = Number(d.installment_amount) - partial;
+              const partial_paid_in_month = Math.max(0, Math.round((standard_remaining - remaining) * 100) / 100);
+              const current_installment = Math.max(0, Number(d.installment_amount) - partial_paid_in_month);
 
               return (
                 <Card key={d.id} className="p-5 hover:shadow-soft transition-smooth">
@@ -149,7 +155,7 @@ const Dividas = () => {
                       <p className="text-xs text-muted-foreground">Parcela atual</p>
                       <p className="font-semibold">
                         {formatCurrency(current_installment)}
-                        {partial > 0 && <span className="text-[10px] block text-success font-normal">(-{formatCurrency(partial)})</span>}
+                        {partial_paid_in_month > 0 && <span className="text-[10px] block text-success font-normal">(-{formatCurrency(partial_paid_in_month)})</span>}
                       </p>
                     </div>
                     <div>
