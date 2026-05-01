@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
 import { Trash2, CreditCard, Repeat, CheckCircle2, Clock, AlertCircle, Edit2 } from "lucide-react";
 import { toast } from "sonner";
-import { toast } from "sonner";
 
 const statusConfig = {
   pago: { label: "Paga", icon: CheckCircle2, className: "bg-success/10 text-success border-success/20" },
