@@ -24,7 +24,14 @@ export const useExpenses = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("expenses").select("*").order("due_date", { ascending: true });
       if (error) throw error;
-      return data;
+      return data.map((e: any) => {
+        if (e.status !== "pago") {
+          const days = daysUntil(e.due_date);
+          if (days < 0) e.status = "atrasado";
+          else e.status = "pendente";
+        }
+        return e;
+      });
     },
   });
 };
@@ -37,7 +44,14 @@ export const useDebts = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("debts").select("*").order("due_date", { ascending: true });
       if (error) throw error;
-      return data;
+      return data.map((d: any) => {
+        if (d.status !== "quitada") {
+          const days = daysUntil(d.due_date);
+          if (days < 0) d.status = "atrasada";
+          else d.status = "em_dia";
+        }
+        return d;
+      });
     },
   });
 };
