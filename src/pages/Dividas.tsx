@@ -28,7 +28,7 @@ const Dividas = () => {
   const [editingDebt, setEditingDebt] = useState<any>(null);
   const [partialDebt, setPartialDebt] = useState<any>(null);
   const [partialAmount, setPartialAmount] = useState("");
-  const [amortization, setAmortization] = useState<"parcela" | "prazo" | "atual">("parcela");
+  const [amortization, setAmortization] = useState<"parcela" | "prazo" | "atual">("atual");
   const { data: debts = [], isLoading } = useDebts();
   const qc = useQueryClient();
 
@@ -55,7 +55,7 @@ const Dividas = () => {
   });
 
   const payPartial = useMutation({
-    mutationFn: async ({ debt, amount, type }: { debt: any, amount: number, type: "parcela" | "prazo" }) => {
+    mutationFn: async ({ debt, amount, type }: { debt: any, amount: number, type: "parcela" | "prazo" | "atual" }) => {
       const current_remaining = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
       const new_remaining = Math.max(0, current_remaining - amount);
       const newTotal = Math.max(0, debt.total_amount - amount);
