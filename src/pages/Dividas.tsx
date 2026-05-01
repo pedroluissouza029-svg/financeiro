@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useExpenses } from "@/hooks/useFinanceData";
+import { isInCurrentMonth } from "@/lib/finance-utils";
 import { Trash2, CreditCard, Edit2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,8 +31,11 @@ const Dividas = () => {
   const [partialDebt, setPartialDebt] = useState<any>(null);
   const [partialAmount, setPartialAmount] = useState("");
   const [amortization, setAmortization] = useState<"parcela" | "prazo" | "atual">("atual");
-  const { data: debts = [], isLoading } = useDebts();
+  const { data: debts = [], isLoading: loadingDebts, isError: errorDebts } = useDebts();
+  const { data: expenses = [], isLoading: loadingExpenses, isError: errorExpenses } = useExpenses();
   const qc = useQueryClient();
+  const isLoading = loadingDebts || loadingExpenses;
+  const isError = errorDebts || errorExpenses;
 
   const del = useMutation({
     mutationFn: async (id: string) => {
@@ -42,9 +47,17 @@ const Dividas = () => {
 
   const payInstallment = useMutation({
     mutationFn: async (debt: any) => {
+      const debtPartials = expenses.filter(e => 
+        e.payment_method === `debt:${debt.id}` && 
+        e.category === "Amortização" &&
+        isInCurrentMonth(e.due_date)
+      );
+      const partialPaid = debtPartials.reduce((sum, e) => sum + Number(e.amount), 0);
+      const amountToPay = Math.max(0, Number(debt.installment_amount) - partialPaid);
+
       const newPaid = Math.min(debt.paid_installments + 1, debt.total_installments);
       const newStatus = newPaid >= debt.total_installments ? "quitada" : debt.status;
-      const newTotal = Math.max(0, Number(debt.total_amount) - Number(debt.installment_amount));
+      const newTotal = Math.max(0, Number(debt.total_amount) - amountToPay);
 
       const { error } = await supabase.from("debts").update({ 
         paid_installments: newPaid, 
@@ -52,8 +65,23 @@ const Dividas = () => {
         total_amount: newTotal
       }).eq("id", debt.id);
       if (error) throw error;
+
+      // Register the payment of the rest of the installment as a normal expense too?
+      // Optional, but for consistency let's do it.
+      await supabase.from("expenses").insert([{
+        user_id: (await supabase.auth.getUser()).data.user!.id,
+        name: `Parcela: ${debt.name}`,
+        amount: amountToPay,
+        category: "Dívida",
+        due_date: new Date().toISOString().slice(0, 10),
+        status: "pago"
+      }]);
     },
-    onSuccess: () => { toast.success("Parcela registrada"); qc.invalidateQueries({ queryKey: ["debts"] }); },
+    onSuccess: () => { 
+      toast.success("Parcela registrada"); 
+      qc.invalidateQueries({ queryKey: ["debts"] }); 
+      qc.invalidateQueries({ queryKey: ["expenses"] }); 
+    },
   });
 
   const payPartial = useMutation({
@@ -72,18 +100,18 @@ const Dividas = () => {
         new_paid = debt.total_installments;
       } else {
         if (type === "atual") {
-          const expected_total = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
-          const accumulated_partial = expected_total - Number(debt.total_amount);
-          const total_partial_now = accumulated_partial + amount;
-          const installments_to_add = Math.floor(total_partial_now / Number(debt.installment_amount));
-          
-          if (installments_to_add > 0) {
-            new_paid += installments_to_add;
-            if (new_paid >= debt.total_installments) {
-              new_paid = debt.total_installments;
-              new_status = "quitada";
-            }
-          }
+          // No need to change paid_installments or inst_amount here.
+          // We will track the deduction via a linked expense.
+          const { error: expError } = await supabase.from("expenses").insert([{
+            user_id: (await supabase.auth.getUser()).data.user!.id,
+            name: `Abatimento: ${debt.name}`,
+            amount: amount,
+            category: "Amortização",
+            due_date: new Date().toISOString().slice(0, 10),
+            status: "pago",
+            payment_method: `debt:${debt.id}`
+          }]);
+          if (expError) throw expError;
         } else if (type === "parcela") {
           const rem_inst = debt.total_installments - debt.paid_installments;
           new_inst_amount = new_remaining / rem_inst;
@@ -104,8 +132,9 @@ const Dividas = () => {
       if (error) throw error;
     },
     onSuccess: () => { 
-      toast.success("Abatimento inteligente realizado!"); 
+      toast.success("Abatimento registrado com sucesso!"); 
       qc.invalidateQueries({ queryKey: ["debts"] }); 
+      qc.invalidateQueries({ queryKey: ["expenses"] }); 
       setPartialDebt(null);
       setPartialAmount("");
     },
@@ -113,7 +142,16 @@ const Dividas = () => {
 
   return (
     <PageHeader title="Dívidas" description="Acompanhe parcelas e financiamentos" action={{ label: "Nova dívida", onClick: () => setOpen(true) }}>
-      {isLoading ? <p className="text-muted-foreground">Carregando…</p> :
+      {isError ? (
+        <Card className="p-6 border-destructive/50 bg-destructive/5">
+          <p className="text-destructive font-medium">Erro ao carregar os dados. Por favor, recarregue a página.</p>
+        </Card>
+      ) : isLoading ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <p>Carregando dívidas…</p>
+        </div>
+      ) :
         debts.length === 0 ? (
           <Card className="p-12 text-center">
             <CreditCard className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
@@ -124,7 +162,14 @@ const Dividas = () => {
             {debts.map((d) => {
               const progress = (d.paid_installments / d.total_installments) * 100;
               const remaining = Number(d.total_amount);
-              const current_installment = Number(d.installment_amount);
+              
+              const debtPartials = expenses.filter(e => 
+                e.payment_method === `debt:${d.id}` && 
+                e.category === "Amortização" &&
+                isInCurrentMonth(e.due_date)
+              );
+              const partialPaidThisMonth = debtPartials.reduce((sum, e) => sum + Number(e.amount), 0);
+              const current_installment = Math.max(0, Number(d.installment_amount) - partialPaidThisMonth);
 
               return (
                 <Card key={d.id} className="p-5 hover:shadow-soft transition-smooth">
@@ -147,6 +192,7 @@ const Dividas = () => {
                       <p className="text-xs text-muted-foreground">Parcela atual</p>
                       <p className="font-semibold">
                         {formatCurrency(current_installment)}
+                        {partialPaidThisMonth > 0 && <span className="text-[10px] block text-success font-normal">(-{formatCurrency(partialPaidThisMonth)})</span>}
                       </p>
                     </div>
                     <div>
