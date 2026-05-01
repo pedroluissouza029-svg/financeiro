@@ -235,7 +235,7 @@ const Dividas = () => {
               <Select value={amortization} onValueChange={(v: any) => setAmortization(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="atual">Apenas reduzir o Saldo Devedor (Amortizar)</SelectItem>
+                  <SelectItem value="atual">Abater valor da parcela atual</SelectItem>
                   <SelectItem value="parcela">Reduzir o valor das próximas parcelas</SelectItem>
                   <SelectItem value="prazo">Reduzir o número de parcelas (Prazo)</SelectItem>
                 </SelectContent>
