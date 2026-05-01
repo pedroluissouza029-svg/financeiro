@@ -28,7 +28,7 @@ const Dividas = () => {
   const [editingDebt, setEditingDebt] = useState<any>(null);
   const [partialDebt, setPartialDebt] = useState<any>(null);
   const [partialAmount, setPartialAmount] = useState("");
-  const [amortization, setAmortization] = useState<"parcela" | "prazo">("parcela");
+  const [amortization, setAmortization] = useState<"parcela" | "prazo" | "atual">("parcela");
   const { data: debts = [], isLoading } = useDebts();
   const qc = useQueryClient();
 
@@ -42,9 +42,19 @@ const Dividas = () => {
 
   const payInstallment = useMutation({
     mutationFn: async (debt: any) => {
+      const expected_total = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
+      const partial_accumulated = expected_total - Number(debt.total_amount);
+      const amount_to_pay = Number(debt.installment_amount) - partial_accumulated;
+
       const newPaid = Math.min(debt.paid_installments + 1, debt.total_installments);
       const newStatus = newPaid >= debt.total_installments ? "quitada" : debt.status;
-      const { error } = await supabase.from("debts").update({ paid_installments: newPaid, status: newStatus }).eq("id", debt.id);
+      const newTotal = Math.max(0, debt.total_amount - amount_to_pay);
+
+      const { error } = await supabase.from("debts").update({ 
+        paid_installments: newPaid, 
+        status: newStatus,
+        total_amount: newTotal
+      }).eq("id", debt.id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Parcela registrada"); qc.invalidateQueries({ queryKey: ["debts"] }); },
@@ -65,7 +75,20 @@ const Dividas = () => {
         new_status = "quitada";
         new_paid = debt.total_installments;
       } else {
-        if (type === "parcela") {
+        if (type === "atual") {
+          const expected_total = (debt.total_installments - debt.paid_installments) * Number(debt.installment_amount);
+          const accumulated_partial = expected_total - Number(debt.total_amount);
+          const total_partial_now = accumulated_partial + amount;
+          const installments_to_add = Math.floor(total_partial_now / Number(debt.installment_amount));
+          
+          if (installments_to_add > 0) {
+            new_paid += installments_to_add;
+            if (new_paid >= debt.total_installments) {
+              new_paid = debt.total_installments;
+              new_status = "quitada";
+            }
+          }
+        } else if (type === "parcela") {
           const rem_inst = debt.total_installments - debt.paid_installments;
           new_inst_amount = new_remaining / rem_inst;
         } else {
@@ -104,7 +127,13 @@ const Dividas = () => {
           <div className="grid gap-4 md:grid-cols-2">
             {debts.map((d) => {
               const progress = (d.paid_installments / d.total_installments) * 100;
-              const remaining = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
+              const expected_total = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
+              const remaining = expected_total;
+              
+              const diff = Math.round((expected_total - Number(d.total_amount)) * 100) / 100;
+              const partial = Math.max(0, diff);
+              const current_installment = Number(d.installment_amount) - partial;
+
               return (
                 <Card key={d.id} className="p-5 hover:shadow-soft transition-smooth">
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -123,12 +152,15 @@ const Dividas = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm py-3 border-y">
                     <div>
-                      <p className="text-xs text-muted-foreground">Parcela</p>
-                      <p className="font-semibold">{formatCurrency(Number(d.installment_amount))}</p>
+                      <p className="text-xs text-muted-foreground">Parcela atual</p>
+                      <p className="font-semibold">
+                        {formatCurrency(current_installment)}
+                        {partial > 0 && <span className="text-[10px] block text-success font-normal">(-{formatCurrency(partial)})</span>}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Restante</p>
-                      <p className="font-semibold">{formatCurrency(remaining)}</p>
+                      <p className="font-semibold">{formatCurrency(Number(d.total_amount))}</p>
                     </div>
                   </div>
                   <div className="flex gap-2 mt-3">
@@ -166,6 +198,7 @@ const Dividas = () => {
               <Select value={amortization} onValueChange={(v: any) => setAmortization(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="atual">Abater apenas da parcela atual</SelectItem>
                   <SelectItem value="parcela">Reduzir o valor das próximas parcelas</SelectItem>
                   <SelectItem value="prazo">Reduzir o número de parcelas (Prazo)</SelectItem>
                 </SelectContent>
