@@ -110,17 +110,7 @@ export const ExpenseFormDialog = ({ open, onOpenChange, expense }: Props) => {
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="atrasado">Atrasado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+
           <div className="flex items-center justify-between rounded-lg border p-3">
             <Label htmlFor="rec-e">Despesa recorrente</Label>
             <Switch id="rec-e" checked={form.is_recurring} onCheckedChange={(c) => setForm({ ...form, is_recurring: c })} />

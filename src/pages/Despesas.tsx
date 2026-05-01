@@ -94,14 +94,14 @@ const Despesas = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                    <Select value={e.status} onValueChange={(v) => updateStatus.mutate({ id: e.id, status: v })}>
-                      <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                        <SelectItem value="pago">Pago</SelectItem>
-                        <SelectItem value="atrasado">Atrasado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Button 
+                      variant={e.status === "pago" ? "secondary" : "default"} 
+                      size="sm" 
+                      onClick={() => updateStatus.mutate({ id: e.id, status: e.status === "pago" ? "pendente" : "pago" })}
+                      className="h-8 text-xs"
+                    >
+                      {e.status === "pago" ? "Reverter Pagamento" : "Marcar como Pago"}
+                    </Button>
                     <div className="ml-auto flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => { setEditingExpense(e); setOpen(true); }}>
                         <Edit2 className="w-4 h-4" />

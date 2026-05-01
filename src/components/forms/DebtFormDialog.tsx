@@ -110,21 +110,11 @@ export const DebtFormDialog = ({ open, onOpenChange, debt }: Props) => {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-2">
               <Label>Próximo vencimento</Label>
               <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="em_dia">Em dia</SelectItem>
-                  <SelectItem value="atrasada">Atrasada</SelectItem>
-                  <SelectItem value="quitada">Quitada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
         </div>
         <DialogFooter>

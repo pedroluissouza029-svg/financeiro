@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
 import { Trash2, CreditCard, Repeat, CheckCircle2, Clock, AlertCircle, Edit2 } from "lucide-react";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 const statusConfig = {
   pago: { label: "Paga", icon: CheckCircle2, className: "bg-success/10 text-success border-success/20" },
@@ -90,14 +90,14 @@ const Cartoes = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                    <Select value={e.status} onValueChange={(v) => updateStatus.mutate({ id: e.id, status: v })}>
-                      <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendente">Aberta</SelectItem>
-                        <SelectItem value="pago">Paga</SelectItem>
-                        <SelectItem value="atrasado">Atrasada</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Button 
+                      variant={e.status === "pago" ? "secondary" : "default"} 
+                      size="sm" 
+                      onClick={() => updateStatus.mutate({ id: e.id, status: e.status === "pago" ? "pendente" : "pago" })}
+                      className="h-8 text-xs"
+                    >
+                      {e.status === "pago" ? "Reverter Pagamento" : "Marcar como Pago"}
+                    </Button>
                     <div className="ml-auto flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => { setEditingInvoice(e); setOpen(true); }}>
                         <Edit2 className="w-4 h-4" />
