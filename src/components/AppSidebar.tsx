@@ -11,6 +11,7 @@ const navItems = [
   { title: "Receitas", url: "/receitas", icon: TrendingUp },
   { title: "Despesas", url: "/despesas", icon: TrendingDown },
   { title: "Dívidas", url: "/dividas", icon: CreditCard },
+  { title: "Cartões", url: "/cartoes", icon: CreditCard },
   { title: "Calendário", url: "/calendario", icon: Calendar },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "Configurações", url: "/configuracoes", icon: Settings },

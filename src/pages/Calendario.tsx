@@ -9,10 +9,10 @@ const Calendario = () => {
   const { data: expenses = [] } = useExpenses();
   const { data: debts = [] } = useDebts();
 
-  type Item = { id: string; name: string; date: string; amount: number; kind: "expense" | "debt"; status?: string };
+  type Item = { id: string; name: string; date: string; amount: number; kind: "expense" | "debt" | "cartao"; status?: string };
   const items: Item[] = [
     ...expenses.filter(e => e.status !== "pago").map(e => ({
-      id: e.id, name: e.name, date: e.due_date, amount: Number(e.amount), kind: "expense" as const, status: e.status,
+      id: e.id, name: e.name, date: e.due_date, amount: Number(e.amount), kind: (e.category === "Cartão" || e.category === "Cartão de Crédito") ? "cartao" as const : "expense" as const, status: e.status,
     })),
     ...debts.filter(d => d.status !== "quitada").map(d => ({
       id: d.id, name: d.name, date: d.due_date, amount: Number(d.installment_amount), kind: "debt" as const, status: d.status,
@@ -46,8 +46,8 @@ const Calendario = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{item.name}</p>
                     <Badge variant="outline" className="text-xs gap-1">
-                      {item.kind === "debt" ? <CreditCard className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {item.kind === "debt" ? "Dívida" : "Despesa"}
+                      {item.kind === "debt" ? <CreditCard className="w-3 h-3" /> : item.kind === "cartao" ? <CreditCard className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {item.kind === "debt" ? "Dívida" : item.kind === "cartao" ? "Fatura" : "Despesa"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">

@@ -56,9 +56,13 @@ export const getFinancialStatus = (balance: number): FinancialStatus => {
 
 export const expenseCategories = [
   "Moradia", "Alimentação", "Transporte", "Saúde", "Educação",
-  "Lazer", "Compras", "Assinaturas", "Cartão", "Outros",
+  "Lazer", "Compras", "Assinaturas", "Cartão", "Cartão de Crédito", "Outros",
 ];
 
 export const paymentMethods = [
   "Pix", "Dinheiro", "Débito", "Crédito", "Boleto", "Transferência",
+];
+
+export const creditCardBanks = [
+  "Nubank", "Itaú", "Inter", "Bradesco", "Santander", "C6 Bank", "Banco do Brasil", "Caixa", "XP", "BTG", "Outro"
 ];
