@@ -122,7 +122,7 @@ const Dividas = () => {
             {debts.map((d) => {
               const progress = (d.paid_installments / d.total_installments) * 100;
               const expected_total = (d.total_installments - d.paid_installments) * Number(d.installment_amount);
-              const remaining = expected_total;
+              const remaining = Math.max(0, Number(d.total_amount) - (d.paid_installments * Number(d.installment_amount)));
               
               const diff = Math.round((expected_total - Number(d.total_amount)) * 100) / 100;
               const partial = Math.max(0, diff);
