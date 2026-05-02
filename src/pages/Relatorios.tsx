@@ -38,7 +38,15 @@ const Relatorios = () => {
       amount: d.installment_amount, 
       status: d.status === 'atrasada' ? 'atrasado' : d.status === 'quitada' ? 'pago' : 'pendente' 
     })),
-    ...incomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
+    ...incomes.map(i => {
+      const days = daysUntil(i.received_date);
+      return { 
+        ...i, 
+        type: 'receita', 
+        date: i.received_date, 
+        status: days <= 0 ? 'pago' : 'pendente' 
+      };
+    })
   ];
 
   const filteredByDate = allItems.filter(item => {
@@ -291,7 +299,10 @@ const Relatorios = () => {
                           'border-warning/50 text-warning bg-warning/5'
                         }`}
                       >
-                        {item.status === 'pago' ? 'Paga' : item.status === 'atrasado' ? 'Atrasada' : 'Pendente'}
+                        {item.type === 'receita' 
+                          ? (item.status === 'pago' ? 'Recebida' : 'Pendente')
+                          : (item.status === 'pago' ? 'Paga' : item.status === 'atrasado' ? 'Atrasada' : 'Pendente')
+                        }
                       </Badge>
                     </TableCell>
                     <TableCell className={`text-right font-bold ${item.type === 'receita' ? 'text-success' : ''}`}>

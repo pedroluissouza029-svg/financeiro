@@ -7,7 +7,7 @@ import { IncomeFormDialog } from "@/components/forms/IncomeFormDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/finance-utils";
+import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
 import { Trash2, TrendingUp, Repeat, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +48,10 @@ const Receitas = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{i.name}</p>
                     <Badge variant="secondary" className="text-xs">{typeLabels[i.income_type]}</Badge>
+                    {daysUntil(i.received_date) <= 0 
+                      ? <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20">Recebida</Badge>
+                      : <Badge className="bg-warning/10 text-warning border-warning/20 hover:bg-warning/20">Pendente</Badge>
+                    }
                     {i.is_recurring && <Badge variant="outline" className="text-xs gap-1"><Repeat className="w-3 h-3" />Recorrente</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">Recebido em {formatDate(i.received_date)}</p>

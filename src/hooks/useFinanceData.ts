@@ -84,6 +84,11 @@ export const useFinancialSummary = () => {
     if (days < 0) alerts.push({ type: "danger", message: `${e.name} está vencida há ${Math.abs(days)} dia(s)` });
     else if (days <= 3) alerts.push({ type: "warning", message: `${e.name} vence em ${days} dia(s)` });
   });
+  incomes.forEach((i) => {
+    const days = daysUntil(i.received_date);
+    if (days === 0) alerts.push({ type: "info", message: `Hoje é o dia de receber: ${i.name}. Já caiu na conta?` });
+    else if (days > 0 && days <= 3) alerts.push({ type: "info", message: `${i.name} está previsto para daqui a ${days} dia(s)` });
+  });
   debts.forEach((d) => {
     if (d.status === "atrasada") alerts.push({ type: "danger", message: `Dívida atrasada: ${d.name}` });
   });
