@@ -16,7 +16,7 @@ const statusConfig = {
 
 const Dashboard = () => {
   const { 
-    totalIncome, paidExpenses, pendingExpenses, openDebts, 
+    totalIncome, receivedIncomes, pendingIncomes, paidExpenses, pendingExpenses, openDebts, 
     overdueExpenses, overdueDebts, monthDebtInstallments, 
     balance, alerts, expenses, incomes, debts 
   } = useFinancialSummary();
@@ -84,11 +84,12 @@ const Dashboard = () => {
       </Card>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <KpiCard icon={TrendingUp} label="Receita total" value={totalIncome} accent="success" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={TrendingUp} label="Recebido no mês" value={receivedIncomes} accent="success" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+        <KpiCard icon={Clock} label="Receita pendente" value={pendingIncomes} accent="warning" onClick={() => { setReportType("all"); setReportOpen(true); }} />
         <KpiCard icon={CheckCircle2} label="Despesas pagas" value={paidExpenses} accent="success" onClick={() => { setReportType("all"); setReportOpen(true); }} />
-        <KpiCard icon={AlertTriangle} label="Contas em atraso" value={overdueExpenses + overdueDebts} accent="destructive" onClick={() => { setReportType("overdue"); setReportOpen(true); }} />
         <KpiCard icon={Clock} label="Despesas pendentes" value={pendingExpenses} accent="warning" onClick={() => { setReportType("all"); setReportOpen(true); }} />
+        <KpiCard icon={AlertTriangle} label="Atrasados (Desp + Dív)" value={overdueExpenses + overdueDebts} accent="destructive" onClick={() => { setReportType("overdue"); setReportOpen(true); }} />
         <KpiCard icon={Receipt} label="Dívidas do mês" value={monthDebtInstallments} accent="warning" onClick={() => { setReportType("month"); setReportOpen(true); }} />
         <KpiCard icon={CreditCard} label="Saldo devedor total" value={openDebts} accent="destructive" />
       </div>

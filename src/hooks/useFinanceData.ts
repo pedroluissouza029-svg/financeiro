@@ -66,17 +66,21 @@ export const useFinancialSummary = () => {
   const monthIncomes = incomes.filter((i) => isInCurrentMonth(i.received_date));
   const monthExpenses = expenses.filter((e) => isInCurrentMonth(e.due_date));
 
-  const totalIncome = monthIncomes.reduce((s, i) => s + Number(i.amount), 0);
+  const receivedIncomes = monthIncomes.filter((i) => i.status === "recebido").reduce((s, i) => s + Number(i.amount), 0);
+  const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.amount), 0);
+  const totalIncome = receivedIncomes + pendingIncomes;
+
   const paidExpenses = monthExpenses.filter((e) => e.status === "pago").reduce((s, e) => s + Number(e.amount), 0);
   const pendingExpenses = monthExpenses.filter((e) => e.status !== "pago").reduce((s, e) => s + Number(e.amount), 0);
   const totalExpenses = paidExpenses + pendingExpenses;
+  
   const openDebts = debts.filter((d) => d.status !== "quitada").reduce((s, d) => s + Number(d.total_amount), 0);
   
   const overdueExpenses = expenses.filter((e) => e.status === "atrasado").reduce((s, e) => s + Number(e.amount), 0);
   const overdueDebts = debts.filter((d) => d.status === "atrasada").reduce((s, d) => s + Number(d.installment_amount), 0);
   const monthDebtInstallments = debts.filter((d) => d.status !== "quitada" && isInCurrentMonth(d.due_date)).reduce((s, d) => s + Number(d.installment_amount), 0);
   
-  const balance = totalIncome - totalExpenses;
+  const balance = receivedIncomes - paidExpenses;
 
   // Alerts
   const alerts: { type: "warning" | "danger" | "info"; message: string }[] = [];
@@ -87,6 +91,7 @@ export const useFinancialSummary = () => {
     else if (days <= 3) alerts.push({ type: "warning", message: `${e.name} vence em ${days} dia(s)` });
   });
   incomes.forEach((i) => {
+    if (i.status === "recebido") return;
     const days = daysUntil(i.received_date);
     if (days === 0) alerts.push({ type: "info", message: `Hoje é o dia de receber: ${i.name}. Já caiu na conta?` });
     else if (days > 0 && days <= 3) alerts.push({ type: "info", message: `${i.name} está previsto para daqui a ${days} dia(s)` });
@@ -98,7 +103,7 @@ export const useFinancialSummary = () => {
   if (balance < 0) alerts.push({ type: "danger", message: "Saldo do mês está negativo" });
 
   return {
-    totalIncome, paidExpenses, pendingExpenses, totalExpenses,
+    totalIncome, receivedIncomes, pendingIncomes, paidExpenses, pendingExpenses, totalExpenses,
     openDebts, overdueExpenses, overdueDebts, monthDebtInstallments, balance, alerts,
     monthIncomes, monthExpenses, debts, expenses, incomes,
   };

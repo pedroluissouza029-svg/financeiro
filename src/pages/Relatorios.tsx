@@ -36,7 +36,12 @@ const Relatorios = () => {
       amount: d.installment_amount, 
       status: d.status === 'atrasada' ? 'atrasado' : d.status === 'quitada' ? 'pago' : 'pendente' 
     })),
-    ...incomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
+    ...incomes.map(i => ({ 
+      ...i, 
+      type: 'receita', 
+      date: i.received_date, 
+      status: i.status === 'recebido' ? 'pago' : 'pendente' 
+    }))
   ].filter(item => item && item.date);
 
   const filteredByDate = allItems.filter(item => {

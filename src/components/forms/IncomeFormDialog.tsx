@@ -19,6 +19,7 @@ const schema = z.object({
   received_date: z.string().min(1, "Data obrigatória"),
   income_type: z.enum(["salario", "freelance", "investimento", "outro"]),
   is_recurring: z.boolean(),
+  status: z.enum(["recebido", "pendente"]),
 });
 
 interface Props { open: boolean; onOpenChange: (o: boolean) => void; income?: any; }
@@ -29,6 +30,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
   const [form, setForm] = useState({
     name: "", amount: "", received_date: new Date().toISOString().slice(0, 10),
     income_type: "salario" as const, is_recurring: false,
+    status: "recebido" as const,
   });
 
   useEffect(() => {
@@ -37,9 +39,13 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
         setForm({
           name: income.name, amount: income.amount.toString(), received_date: income.received_date,
           income_type: income.income_type as any, is_recurring: income.is_recurring,
+          status: income.status || (new Date(income.received_date) <= new Date() ? "recebido" : "pendente"),
         });
       } else {
-        setForm({ name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), income_type: "salario", is_recurring: false });
+        setForm({ 
+          name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), 
+          income_type: "salario", is_recurring: false, status: "recebido" 
+        });
       }
     }
   }, [open, income]);
@@ -54,6 +60,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
           received_date: parsed.received_date,
           income_type: parsed.income_type,
           is_recurring: parsed.is_recurring,
+          status: parsed.status,
         }).eq("id", income.id);
         if (error) throw error;
       } else {
@@ -64,6 +71,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
           received_date: parsed.received_date,
           income_type: parsed.income_type,
           is_recurring: parsed.is_recurring,
+          status: parsed.status,
         }]);
         if (error) throw error;
       }
@@ -111,6 +119,16 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
                 <SelectItem value="freelance">Freelance</SelectItem>
                 <SelectItem value="investimento">Investimento</SelectItem>
                 <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recebido">Recebido</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
               </SelectContent>
             </Select>
           </div>

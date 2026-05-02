@@ -48,16 +48,34 @@ const Receitas = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{i.name}</p>
                     <Badge variant="secondary" className="text-xs">{typeLabels[i.income_type]}</Badge>
-                    {daysUntil(i.received_date) <= 0 
-                      ? <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20">Recebida</Badge>
-                      : <Badge className="bg-warning/10 text-warning border-warning/20 hover:bg-warning/20">Pendente</Badge>
+                    {i.status === "recebido" 
+                      ? <Badge className="bg-success/10 text-success border-success/20">Recebida</Badge>
+                      : <Badge className="bg-warning/10 text-warning border-warning/20">Pendente</Badge>
                     }
                     {i.is_recurring && <Badge variant="outline" className="text-xs gap-1"><Repeat className="w-3 h-3" />Recorrente</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Recebido em {formatDate(i.received_date)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Previsão: {formatDate(i.received_date)}</p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="font-bold text-success">{formatCurrency(Number(i.amount))}</p>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="font-bold text-success">{formatCurrency(Number(i.amount))}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={i.status === "recebido" ? "outline" : "default"}
+                    className="h-8 text-xs hidden sm:flex"
+                    onClick={async () => {
+                      const newStatus = i.status === "recebido" ? "pendente" : "recebido";
+                      const { error } = await supabase.from("incomes").update({ status: newStatus }).eq("id", i.id);
+                      if (error) toast.error("Erro ao atualizar");
+                      else {
+                        toast.success(newStatus === "recebido" ? "Recebida!" : "Marcada como pendente");
+                        qc.invalidateQueries({ queryKey: ["incomes"] });
+                      }
+                    }}
+                  >
+                    {i.status === "recebido" ? "Estornar" : "Receber"}
+                  </Button>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <Button variant="ghost" size="icon" onClick={() => { setEditingIncome(i); setOpen(true); }}>
