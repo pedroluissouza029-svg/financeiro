@@ -6,6 +6,8 @@ import { TrendingUp, TrendingDown, Wallet, AlertCircle, CheckCircle2, AlertTrian
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const statusConfig = {
   saudavel: { label: "Saudável", icon: CheckCircle2, className: "bg-success text-success-foreground" },
@@ -21,6 +23,7 @@ const Dashboard = () => {
   } = useFinancialSummary();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState<"all" | "overdue" | "month">("all");
+  const [viewMode, setViewMode] = useState<"month" | "all">("month");
   
   const status = getFinancialStatus(balance);
   const StatusIcon = statusConfig[status].icon;
@@ -29,16 +32,35 @@ const Dashboard = () => {
 
   const monthName = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
+  const filteredIncomes = viewMode === "month" ? incomes.filter(i => isInCurrentMonth(i.received_date)) : incomes;
+  const filteredExpenses = viewMode === "month" ? expenses.filter(e => isInCurrentMonth(e.due_date)) : expenses;
+  const filteredDebts = debts.filter(d => d.status !== "quitada");
+
+  const displayIncome = filteredIncomes.reduce((s, i) => s + Number(i.amount), 0);
+  const displayExpenses = filteredExpenses.reduce((s, e) => s + Number(e.amount), 0);
+  const displayBalance = displayIncome - displayExpenses;
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground capitalize">{monthName}</p>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         </div>
-        <Badge className={`${statusConfig[status].className} px-4 py-2 text-sm font-semibold gap-2 shadow-soft`}>
-          <StatusIcon className="w-4 h-4" /> {statusConfig[status].label}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Select value={viewMode} onValueChange={(v: any) => setViewMode(v)}>
+            <SelectTrigger className="w-[180px] bg-background">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Este Mês</SelectItem>
+              <SelectItem value="all">Todo o Período</SelectItem>
+            </SelectContent>
+          </Select>
+          <Badge className={`${statusConfig[status].className} px-4 py-2 text-sm font-semibold gap-2 shadow-soft`}>
+            <StatusIcon className="w-4 h-4" /> {statusConfig[status].label}
+          </Badge>
+        </div>
       </header>
 
       {/* Big balance card */}
@@ -47,16 +69,16 @@ const Dashboard = () => {
           <Wallet className="w-4 h-4" /> Saldo disponível do mês
         </div>
         <div className="text-4xl md:text-5xl font-bold tracking-tight">
-          {formatCurrency(balance)}
+          {formatCurrency(viewMode === "month" ? balance : displayBalance)}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 pt-4 border-t border-primary-foreground/20">
           <div>
             <p className="text-xs text-primary-foreground/70">Receitas</p>
-            <p className="text-lg font-semibold">{formatCurrency(totalIncome)}</p>
+            <p className="text-lg font-semibold">{formatCurrency(displayIncome)}</p>
           </div>
           <div>
             <p className="text-xs text-primary-foreground/70">Despesas</p>
-            <p className="text-lg font-semibold">{formatCurrency(paidExpenses + pendingExpenses)}</p>
+            <p className="text-lg font-semibold">{formatCurrency(displayExpenses)}</p>
           </div>
         </div>
       </Card>
@@ -95,6 +117,57 @@ const Dashboard = () => {
           </ul>
         )}
       </Card>
+
+      {/* Quick Access List */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Clock className="w-5 h-5 text-warning" />
+              Contas Pendentes
+            </h2>
+            <Badge variant="outline">{filteredExpenses.filter(e => e.status !== "pago").length}</Badge>
+          </div>
+          <div className="space-y-3">
+            {filteredExpenses.filter(e => e.status !== "pago").slice(0, 5).map((e) => (
+              <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                <div>
+                  <p className="font-medium text-sm">{e.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatDate(e.due_date)}</p>
+                </div>
+                <p className="font-bold text-sm text-destructive">{formatCurrency(e.amount)}</p>
+              </div>
+            ))}
+            {filteredExpenses.filter(e => e.status !== "pago").length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma conta pendente</p>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary" />
+              Próximas Parcelas
+            </h2>
+            <Badge variant="outline">{filteredDebts.length}</Badge>
+          </div>
+          <div className="space-y-3">
+            {filteredDebts.slice(0, 5).map((d) => (
+              <div key={d.id} className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                <div>
+                  <p className="font-medium text-sm">{d.name}</p>
+                  <p className="text-[10px] text-muted-foreground">Parcela {d.paid_installments + 1}/{d.total_installments}</p>
+                </div>
+                <p className="font-bold text-sm">{formatCurrency(d.installment_amount)}</p>
+              </div>
+            ))}
+            {filteredDebts.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma dívida em aberto</p>
+            )}
+          </div>
+        </Card>
+      </div>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
