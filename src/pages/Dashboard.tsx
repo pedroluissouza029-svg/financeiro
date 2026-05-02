@@ -15,6 +15,7 @@ const statusConfig = {
 };
 
 const Dashboard = () => {
+  const { 
     totalIncome, paidExpenses, pendingExpenses, openDebts, 
     overdueExpenses, overdueDebts, monthDebtInstallments, 
     balance, alerts, expenses, incomes, debts 
