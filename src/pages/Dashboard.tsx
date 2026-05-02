@@ -6,7 +6,6 @@ import { TrendingUp, TrendingDown, Wallet, AlertCircle, CheckCircle2, AlertTrian
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const statusConfig = {
@@ -16,10 +15,9 @@ const statusConfig = {
 };
 
 const Dashboard = () => {
-  const { 
     totalIncome, paidExpenses, pendingExpenses, openDebts, 
     overdueExpenses, overdueDebts, monthDebtInstallments, 
-    balance, alerts, expenses, incomes 
+    balance, alerts, expenses, incomes, debts 
   } = useFinancialSummary();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState<"all" | "overdue" | "month">("all");
