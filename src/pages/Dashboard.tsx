@@ -25,7 +25,8 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState<"month" | "all">("month");
   
   const status = getFinancialStatus(balance);
-  const StatusIcon = statusConfig[status].icon;
+  const currentStatusConfig = statusConfig[status] || statusConfig.critico;
+  const StatusIcon = currentStatusConfig.icon;
 
   useEffect(() => { document.title = "Dashboard — Finança"; }, []);
 
@@ -56,8 +57,8 @@ const Dashboard = () => {
               <SelectItem value="all">Todo o Período</SelectItem>
             </SelectContent>
           </Select>
-          <Badge className={`${statusConfig[status].className} px-4 py-2 text-sm font-semibold gap-2 shadow-soft`}>
-            <StatusIcon className="w-4 h-4" /> {statusConfig[status].label}
+          <Badge className={`${currentStatusConfig.className} px-4 py-2 text-sm font-semibold gap-2 shadow-soft`}>
+            <StatusIcon className="w-4 h-4" /> {currentStatusConfig.label}
           </Badge>
         </div>
       </header>
@@ -200,7 +201,11 @@ const Dashboard = () => {
                   if (reportType === "month") return isInCurrentMonth(item.date);
                   return true;
                 })
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .sort((a, b) => {
+                  const dateA = new Date(a.date || 0).getTime();
+                  const dateB = new Date(b.date || 0).getTime();
+                  return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+                })
                 .map((item, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-xs">{formatDate(item.date)}</TableCell>

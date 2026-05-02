@@ -11,7 +11,7 @@ export const useIncomes = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("incomes").select("*").order("received_date", { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 };
@@ -24,6 +24,7 @@ export const useExpenses = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("expenses").select("*").order("due_date", { ascending: true });
       if (error) throw error;
+      if (!data) return [];
       return data.map((e: any) => {
         if (e.status !== "pago") {
           const days = daysUntil(e.due_date);
@@ -44,6 +45,7 @@ export const useDebts = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("debts").select("*").order("due_date", { ascending: true });
       if (error) throw error;
+      if (!data) return [];
       return data.map((d: any) => {
         if (d.status !== "quitada") {
           const days = daysUntil(d.due_date);

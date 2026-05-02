@@ -49,9 +49,9 @@ export const daysUntil = (date: string | Date) => {
 export type FinancialStatus = "saudavel" | "atencao" | "critico";
 
 export const getFinancialStatus = (balance: number): FinancialStatus => {
-  if (balance > 0) return "saudavel";
+  if (isNaN(balance) || balance < 0) return "critico";
   if (balance === 0) return "atencao";
-  return "critico";
+  return "saudavel";
 };
 
 export const expenseCategories = [

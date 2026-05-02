@@ -58,7 +58,7 @@ const Relatorios = () => {
   });
 
   const filteredItems = filteredByDate.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (item.name || "").toLowerCase().includes((searchTerm || "").toLowerCase());
     const matchesStatus = filterStatus === "todos" || item.status === filterStatus;
     const matchesType = filterType === "todos" || item.type === filterType;
     return matchesSearch && matchesStatus && matchesType;
@@ -100,7 +100,7 @@ const Relatorios = () => {
       item.name,
       item.type === 'cartao' ? 'Cartão' : item.type === 'divida' ? 'Dívida' : item.type === 'receita' ? 'Receita' : 'Despesa',
       item.status === 'pago' ? 'Pago' : item.status === 'atrasado' ? 'Atrasado' : 'Pendente',
-      formatCurrency(Number(item.amount))
+      formatCurrency(Number(item.amount || 0))
     ]);
 
     autoTable(doc, {
