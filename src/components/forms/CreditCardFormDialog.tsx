@@ -89,9 +89,9 @@ export const CreditCardFormDialog = ({ open, onOpenChange, invoice }: Props) => 
               <Label>Banco / Operadora</Label>
               {isCustom ? (
                 <div className="flex gap-2">
-                  <Input 
-                    value={form.name} 
-                    onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Digite o banco..."
                     autoFocus
                   />
