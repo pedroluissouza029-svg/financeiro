@@ -70,9 +70,9 @@ export const useFinancialSummary = () => {
   const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.expected_amount || i.amount), 0);
   const totalIncome = receivedIncomes + pendingIncomes;
 
-  const paidExpenses = monthExpenses.filter((e) => e.status === "pago").reduce((s, e) => s + Number(e.amount), 0);
-  const pendingExpenses = monthExpenses.filter((e) => e.status !== "pago").reduce((s, e) => s + Number(e.amount), 0);
-  const totalExpenses = paidExpenses + pendingExpenses;
+  const paidExpenses = monthExpenses.reduce((s, e) => s + Number(e.paid_amount || (e.status === "pago" ? e.amount : 0)), 0);
+  const pendingExpenses = monthExpenses.reduce((s, e) => s + (e.status !== "pago" ? Number(e.amount) - Number(e.paid_amount || 0) : 0), 0);
+  const totalExpenses = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
   
   const openDebts = debts.filter((d) => d.status !== "quitada").reduce((s, d) => s + Number(d.total_amount), 0);
   

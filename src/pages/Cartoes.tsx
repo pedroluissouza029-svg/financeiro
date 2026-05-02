@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useExpenses } from "@/hooks/useFinanceData";
 import { PageHeader } from "@/components/PageHeader";
 import { CreditCardFormDialog } from "@/components/forms/CreditCardFormDialog";
+import { PartialPaymentDialog } from "@/components/forms/PartialPaymentDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/finance-utils";
-import { Trash2, CreditCard, Repeat, CheckCircle2, Clock, AlertCircle, Edit2 } from "lucide-react";
+import { Trash2, CreditCard, Repeat, CheckCircle2, Clock, AlertCircle, Edit2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -19,7 +20,9 @@ const statusConfig = {
 
 const Cartoes = () => {
   const [open, setOpen] = useState(false);
+  const [partialOpen, setPartialOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [activeInvoice, setActiveInvoice] = useState<any>(null);
   const [filter, setFilter] = useState<string>("todos");
   const { data: expenses = [], isLoading } = useExpenses();
   const qc = useQueryClient();
@@ -85,6 +88,11 @@ const Cartoes = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold truncate">Fatura {formatDate(e.due_date).substring(3)}</p>
+                              {Number(e.paid_amount || 0) > 0 && e.status !== "pago" && (
+                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/5">
+                                  Parcial: {formatCurrency(Number(e.paid_amount))}
+                                </Badge>
+                              )}
                               {e.is_recurring && <Badge variant="outline" className="text-xs gap-1"><Repeat className="w-3 h-3" /></Badge>}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
@@ -97,7 +105,12 @@ const Cartoes = () => {
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-bold">{formatCurrency(Number(e.amount))}</p>
+                            <p className="font-bold leading-none">{formatCurrency(Number(e.amount))}</p>
+                            {Number(e.paid_amount || 0) > 0 && e.status !== "pago" && (
+                              <p className="text-[10px] text-primary font-semibold mt-1">
+                                Resta: {formatCurrency(Number(e.amount) - Number(e.paid_amount))}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t">
@@ -109,6 +122,16 @@ const Cartoes = () => {
                           >
                             {e.status === "pago" ? "Reverter Pagamento" : "Marcar como Pago"}
                           </Button>
+                          {e.status !== "pago" && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => { setActiveInvoice(e); setPartialOpen(true); }}
+                              className="h-8 text-xs gap-1.5"
+                            >
+                              <Wallet className="w-3 h-3" /> Parcial
+                            </Button>
+                          )}
                           <div className="ml-auto flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => { setEditingInvoice(e); setOpen(true); }}>
                               <Edit2 className="w-4 h-4" />
@@ -128,6 +151,7 @@ const Cartoes = () => {
         )
       }
       <CreditCardFormDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingInvoice(null); }} invoice={editingInvoice} />
+      <PartialPaymentDialog open={partialOpen} onOpenChange={setPartialOpen} invoice={activeInvoice} />
     </PageHeader>
   );
 };

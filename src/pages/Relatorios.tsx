@@ -73,8 +73,8 @@ const Relatorios = () => {
   const stats = useMemo(() => {
     const totalIn = filteredByDate.filter(i => i.type === 'receita').reduce((s, i) => s + Number(i.amount || 0), 0);
     const totalOut = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.amount || 0), 0);
-    const totalPaid = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pago').reduce((s, i) => s + Number(i.amount || 0), 0);
-    const totalPending = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pendente').reduce((s, i) => s + Number(i.amount || 0), 0);
+    const totalPaid = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.paid_amount || (i.status === 'pago' ? i.amount : 0)), 0);
+    const totalPending = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + (i.status !== 'pago' ? Number(i.amount || 0) - Number(i.paid_amount || 0) : 0), 0);
     const totalOverdue = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'atrasado').reduce((s, i) => s + Number(i.amount || 0), 0);
 
     // Distribution by Category
