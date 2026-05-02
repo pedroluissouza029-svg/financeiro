@@ -1,7 +1,8 @@
 export const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
-export const parseDate = (date: string | Date) => {
+export const parseDate = (date: string | Date | null | undefined) => {
+  if (!date) return new Date();
   if (typeof date === "string" && date.includes("-")) {
     const parts = date.split("T");
     if (parts.length === 1) return new Date(`${date}T12:00:00`);
@@ -9,8 +10,11 @@ export const parseDate = (date: string | Date) => {
   return new Date(date);
 };
 
-export const formatDate = (date: string | Date) =>
-  new Intl.DateTimeFormat("pt-BR").format(parseDate(date));
+export const formatDate = (date: string | Date | null | undefined) => {
+  const parsed = parseDate(date);
+  if (isNaN(parsed.getTime())) return "Data inválida";
+  return new Intl.DateTimeFormat("pt-BR").format(parsed);
+};
 
 export const startOfMonth = (d = new Date()) =>
   new Date(d.getFullYear(), d.getMonth(), 1);
@@ -32,16 +36,18 @@ export const getFifthBusinessDay = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-export const isInCurrentMonth = (date: string | Date) => {
+export const isInCurrentMonth = (date: string | Date | null | undefined) => {
   const d = parseDate(date);
+  if (isNaN(d.getTime())) return false;
   const now = new Date();
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 };
 
-export const daysUntil = (date: string | Date) => {
+export const daysUntil = (date: string | Date | null | undefined) => {
+  const target = parseDate(date);
+  if (isNaN(target.getTime())) return 0;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const target = parseDate(date);
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };

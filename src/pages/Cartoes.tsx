@@ -74,7 +74,7 @@ const Cartoes = () => {
                 </h3>
                 <div className="grid gap-3">
                   {invoices.map((e) => {
-                    const cfg = statusConfig[e.status as keyof typeof statusConfig];
+                    const cfg = statusConfig[e.status as keyof typeof statusConfig] || statusConfig.pendente;
                     const days = daysUntil(e.due_date);
                     return (
                       <Card key={e.id} className="p-4 hover:shadow-soft transition-smooth">

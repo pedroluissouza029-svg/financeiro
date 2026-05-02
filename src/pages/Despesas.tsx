@@ -64,7 +64,7 @@ const Despesas = () => {
         ) : (
           <div className="grid gap-3">
             {filtered.map((e) => {
-              const cfg = statusConfig[e.status];
+              const cfg = statusConfig[e.status as keyof typeof statusConfig] || statusConfig.pendente;
               const StIcon = cfg.icon;
               const days = daysUntil(e.due_date);
               return (
