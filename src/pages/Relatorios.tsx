@@ -67,37 +67,39 @@ const Relatorios = () => {
   // Calculate stats based on filteredByDate
   const totalIn = filteredByDate.filter(i => i.type === 'receita').reduce((s, i) => s + Number(i.amount), 0);
   const totalOut = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.amount), 0);
-  const totalPaidOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pago').reduce((s, i) => s + Number(i.amount), 0);
-  const totalPendingOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pendente').reduce((s, i) => s + Number(i.amount), 0);
-  const totalOverdueOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'atrasado').reduce((s, i) => s + Number(i.amount), 0);
+  const totalPaidOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pago').reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalPendingOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pendente').reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalOverdueOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'atrasado').reduce((s, i) => s + Number(i.amount || 0), 0);
 
   const byCategory = filteredByDate.filter(i => i.type !== 'receita').reduce<Record<string, number>>((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
+    const category = e.category || "Outros";
+    acc[category] = (acc[category] || 0) + Number(e.amount || 0);
     return acc;
   }, {});
   const categoryData = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
 
   const compareData = [
-    { name: "Receitas", valor: totalIn },
-    { name: "Despesas", valor: totalOut },
+    { name: "Receitas", valor: Number(totalIn) || 0 },
+    { name: "Despesas", valor: Number(totalOut) || 0 },
   ];
 
   const exportPDF = () => {
-    const doc = new jsPDF();
-    const title = `Relatorio_Financeiro_${startDate}_a_${endDate}`;
-    
-    doc.setFontSize(18);
-    doc.text("Relatório Financeiro Detalhado", 14, 20);
-    
-    doc.setFontSize(10);
-    doc.text(`Período: ${formatDate(startDate)} até ${formatDate(endDate)}`, 14, 30);
-    
-    doc.setFontSize(12);
-    doc.text(`Resumo: Receitas ${formatCurrency(totalIn)} | Despesas ${formatCurrency(totalOut)} | Saldo ${formatCurrency(totalIn - totalOut)}`, 14, 40);
+    try {
+      const doc = new jsPDF();
+      const title = `Relatorio_Financeiro_${startDate || 'export'}_a_${endDate || 'export'}`;
+      
+      doc.setFontSize(18);
+      doc.text("Relatório Financeiro Detalhado", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.text(`Período: ${formatDate(startDate)} até ${formatDate(endDate)}`, 14, 30);
+      
+      doc.setFontSize(12);
+      doc.text(`Resumo: Receitas ${formatCurrency(totalIn)} | Despesas ${formatCurrency(totalOut)} | Saldo ${formatCurrency(totalIn - totalOut)}`, 14, 40);
 
-    const tableData = filteredItems.map(item => [
-      formatDate(item.date),
-      item.name,
+      const tableData = filteredItems.map(item => [
+        formatDate(item.date),
+        String(item.name || ""),
       item.type === 'cartao' ? 'Cartão' : item.type === 'divida' ? 'Dívida' : item.type === 'receita' ? 'Receita' : 'Despesa',
       item.status === 'pago' ? 'Pago' : item.status === 'atrasado' ? 'Atrasado' : 'Pendente',
       formatCurrency(Number(item.amount || 0))
@@ -109,9 +111,13 @@ const Relatorios = () => {
       body: tableData,
       theme: 'striped',
       headStyles: { fillColor: [59, 130, 246] }
-    });
+      });
 
-    doc.save(`${title}.pdf`);
+      doc.save(`${title}.pdf`);
+    } catch (err) {
+      console.error("Erro ao exportar PDF:", err);
+      alert("Erro ao gerar PDF. Verifique os dados.");
+    }
   };
 
   // Projeção: média dos últimos 3 meses (simplificada — usa atuais)
@@ -149,10 +155,18 @@ const Relatorios = () => {
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(e) => e.name}>
+                <Pie 
+                  data={categoryData} 
+                  dataKey="value" 
+                  nameKey="name" 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={90} 
+                  label={(entry: any) => entry && entry.name ? String(entry.name) : ""}
+                >
                   {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -164,7 +178,7 @@ const Relatorios = () => {
             <BarChart data={compareData}>
               <XAxis dataKey="name" />
               <YAxis tickFormatter={(v) => `R$${v}`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
               <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
                 {compareData.map((_, i) => <Cell key={i} fill={i === 0 ? "hsl(152 72% 38%)" : "hsl(0 78% 55%)"} />)}
               </Bar>
