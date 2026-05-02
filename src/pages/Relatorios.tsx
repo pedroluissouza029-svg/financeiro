@@ -1,13 +1,13 @@
 import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
-import { formatCurrency, isInCurrentMonth, formatDate, parseDate } from "@/lib/finance-utils";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { formatCurrency, formatDate, parseDate } from "@/lib/finance-utils";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, Calendar, CreditCard, Receipt, AlertCircle, CheckCircle2, Clock, FileDown, Printer } from "lucide-react";
+import { Search, CreditCard, Receipt, CheckCircle2, Clock, FileDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -15,17 +15,15 @@ import autoTable from "jspdf-autotable";
 const COLORS = ["hsl(152 72% 38%)", "hsl(160 65% 48%)", "hsl(38 95% 52%)", "hsl(0 78% 55%)", "hsl(220 9% 46%)", "hsl(200 80% 50%)", "hsl(280 60% 55%)", "hsl(20 80% 55%)", "hsl(340 75% 55%)", "hsl(60 70% 45%)"];
 
 const Relatorios = () => {
-  const { totalIncome: monthIncome, paidExpenses: monthPaid, pendingExpenses: monthPending, expenses, debts, incomes } = useFinancialSummary();
+  const { expenses = [], debts = [], incomes = [] } = useFinancialSummary();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [filterType, setFilterType] = useState<string>("todos");
   
-  // Date range state - default to current month
   const now = new Date();
   const [startDate, setStartDate] = useState<string>(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
 
-  // Combined data for the detailed list with date filtering
   const allItems = [
     ...expenses.map(e => {
       const isCard = e.category === "Cartão de Crédito" || e.category === "Cartão";
@@ -38,311 +36,221 @@ const Relatorios = () => {
       amount: d.installment_amount, 
       status: d.status === 'atrasada' ? 'atrasado' : d.status === 'quitada' ? 'pago' : 'pendente' 
     })),
-    ...incomes.map(i => {
-      const days = daysUntil(i.received_date);
-      return { 
-        ...i, 
-        type: 'receita', 
-        date: i.received_date, 
-        status: days <= 0 ? 'pago' : 'pendente' 
-      };
-    })
-  ];
+    ...incomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
+  ].filter(item => item && item.date);
 
   const filteredByDate = allItems.filter(item => {
-    const itemDate = parseDate(item.date);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    return itemDate >= start && itemDate <= end;
+    try {
+      const itemDate = parseDate(item.date);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return true;
+      end.setHours(23, 59, 59, 999);
+      return itemDate >= start && itemDate <= end;
+    } catch {
+      return true;
+    }
   });
 
   const filteredItems = filteredByDate.filter(item => {
-    const matchesSearch = (item.name || "").toLowerCase().includes((searchTerm || "").toLowerCase());
+    const name = String(item.name || "").toLowerCase();
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = name.includes(search);
     const matchesStatus = filterStatus === "todos" || item.status === filterStatus;
     const matchesType = filterType === "todos" || item.type === filterType;
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  // Calculate stats based on filteredByDate
-  const totalIn = filteredByDate.filter(i => i.type === 'receita').reduce((s, i) => s + Number(i.amount), 0);
-  const totalOut = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.amount), 0);
-  const totalPaidOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pago').reduce((s, i) => s + Number(i.amount || 0), 0);
-  const totalPendingOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pendente').reduce((s, i) => s + Number(i.amount || 0), 0);
-  const totalOverdueOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'atrasado').reduce((s, i) => s + Number(i.amount || 0), 0);
-
+  const totalIn = filteredByDate.filter(i => i.type === 'receita').reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalOut = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.amount || 0), 0);
+  
   const byCategory = filteredByDate.filter(i => i.type !== 'receita').reduce<Record<string, number>>((acc, e) => {
-    const category = e.category || "Outros";
-    acc[category] = (acc[category] || 0) + Number(e.amount || 0);
+    const cat = e.category || "Outros";
+    acc[cat] = (acc[cat] || 0) + Number(e.amount || 0);
     return acc;
   }, {});
+  
   const categoryData = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
-
-  const compareData = [
-    { name: "Receitas", valor: Number(totalIn) || 0 },
-    { name: "Despesas", valor: Number(totalOut) || 0 },
-  ];
 
   const exportPDF = () => {
     try {
       const doc = new jsPDF();
-      const title = `Relatorio_Financeiro_${startDate || 'export'}_a_${endDate || 'export'}`;
-      
       doc.setFontSize(18);
-      doc.text("Relatório Financeiro Detalhado", 14, 20);
+      doc.text("Relatório Financeiro", 14, 20);
       
       doc.setFontSize(10);
       doc.text(`Período: ${formatDate(startDate)} até ${formatDate(endDate)}`, 14, 30);
       
-      doc.setFontSize(12);
-      doc.text(`Resumo: Receitas ${formatCurrency(totalIn)} | Despesas ${formatCurrency(totalOut)} | Saldo ${formatCurrency(totalIn - totalOut)}`, 14, 40);
-
       const tableData = filteredItems.map(item => [
         formatDate(item.date),
         String(item.name || ""),
-      item.type === 'cartao' ? 'Cartão' : item.type === 'divida' ? 'Dívida' : item.type === 'receita' ? 'Receita' : 'Despesa',
-      item.status === 'pago' ? 'Pago' : item.status === 'atrasado' ? 'Atrasado' : 'Pendente',
-      formatCurrency(Number(item.amount || 0))
-    ]);
+        item.type,
+        item.status,
+        formatCurrency(Number(item.amount || 0))
+      ]);
 
-    autoTable(doc, {
-      startY: 50,
-      head: [['Data', 'Nome', 'Tipo', 'Status', 'Valor']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [59, 130, 246] }
+      autoTable(doc, {
+        startY: 40,
+        head: [['Data', 'Nome', 'Tipo', 'Status', 'Valor']],
+        body: tableData,
       });
 
-      doc.save(`${title}.pdf`);
-    } catch (err) {
-      console.error("Erro ao exportar PDF:", err);
-      alert("Erro ao gerar PDF. Verifique os dados.");
+      doc.save(`Relatorio_${startDate}_${endDate}.pdf`);
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  // Projeção: média dos últimos 3 meses (simplificada — usa atuais)
-  const projection = totalOut;
-  const projIncome = totalIn;
-
   return (
-    <PageHeader title="Relatórios" description="Veja para onde seu dinheiro vai">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 bg-card p-4 rounded-xl border shadow-sm">
-        <div className="flex items-center gap-4 flex-wrap">
+    <PageHeader title="Relatórios" description="Análise detalhada das suas finanças">
+      <div className="grid gap-6">
+        <div className="flex flex-col md:flex-row gap-4 p-4 bg-card rounded-xl border items-end">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-40" />
+            <label className="text-xs font-medium ml-1">Início</label>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-40" />
+            <label className="text-xs font-medium ml-1">Fim</label>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" />
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={exportPDF} variant="default" className="gap-2 shadow-soft">
-            <FileDown className="w-4 h-4" /> Exportar PDF
-          </Button>
-          <Button onClick={() => window.print()} variant="outline" className="gap-2">
-            <Printer className="w-4 h-4" /> Imprimir
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="p-5">
-          <h3 className="font-semibold mb-4">Gastos por categoria</h3>
-          {categoryData.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no mês</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie 
-                  data={categoryData} 
-                  dataKey="value" 
-                  nameKey="name" 
-                  cx="50%" 
-                  cy="50%" 
-                  outerRadius={90} 
-                  label={(entry: any) => entry && entry.name ? String(entry.name) : ""}
-                >
-                  {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card className="p-5">
-          <h3 className="font-semibold mb-4">Receita × Despesa (mês)</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={compareData}>
-              <XAxis dataKey="name" />
-              <YAxis tickFormatter={(v) => `R$${v}`} />
-              <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
-              <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
-                {compareData.map((_, i) => <Cell key={i} fill={i === 0 ? "hsl(152 72% 38%)" : "hsl(0 78% 55%)"} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Contas pagas" value={totalPaidOut} accent="success" />
-        <StatCard label="Contas pendentes" value={totalPendingOut} accent="warning" />
-        <StatCard label="Contas atrasadas" value={totalOverdueOut} accent="destructive" />
-      </div>
-
-      <Card className="p-5">
-        <h3 className="font-semibold mb-1">Projeção do próximo mês</h3>
-        <p className="text-xs text-muted-foreground mb-4">Baseado nas suas despesas e receitas atuais</p>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Receita estimada</p>
-            <p className="text-lg font-bold text-success">{formatCurrency(projIncome)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Despesa estimada</p>
-            <p className="text-lg font-bold text-destructive">{formatCurrency(projection)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Saldo previsto</p>
-            <p className={`text-lg font-bold ${projIncome - projection >= 0 ? "text-success" : "text-destructive"}`}>
-              {formatCurrency(projIncome - projection)}
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Detalhamento Module */}
-      <Card className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-bold">Detalhamento de Contas</h2>
-            <p className="text-sm text-muted-foreground">Filtre e visualize cada movimentação em detalhes</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge 
-              variant={filterStatus === "todos" ? "default" : "outline"} 
-              className="cursor-pointer" 
-              onClick={() => setFilterStatus("todos")}
-            >Todos</Badge>
-            <Badge 
-              variant={filterStatus === "atrasado" ? "destructive" : "outline"} 
-              className="cursor-pointer" 
-              onClick={() => setFilterStatus("atrasado")}
-            >Atrasadas</Badge>
-            <Badge 
-              variant={filterStatus === "pago" ? "default" : "outline"} 
-              className="cursor-pointer bg-success hover:bg-success/90" 
-              onClick={() => setFilterStatus("pago")}
-            >Pagas</Badge>
-            <Badge 
-              variant={filterStatus === "pendente" ? "default" : "outline"} 
-              className="cursor-pointer bg-warning hover:bg-warning/90" 
-              onClick={() => setFilterStatus("pendente")}
-            >A vencer</Badge>
+          <div className="flex gap-2 ml-auto">
+            <Button onClick={exportPDF} variant="outline" className="gap-2">
+              <FileDown className="w-4 h-4" /> PDF
+            </Button>
+            <Button onClick={() => window.print()} variant="outline" className="gap-2">
+              <Printer className="w-4 h-4" /> Imprimir
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="relative col-span-1 md:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar por nome..." 
-              className="pl-10" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2 col-span-1 md:col-span-2">
-            {['todos', 'despesa', 'cartao', 'divida'].map((type) => (
-              <Badge 
-                key={type}
-                variant={filterType === type ? "secondary" : "outline"}
-                className="cursor-pointer capitalize flex-1 justify-center"
-                onClick={() => setFilterType(type)}
-              >
-                {type === 'todos' ? 'Tipos' : type === 'cartao' ? 'Cartão' : type === 'divida' ? 'Dívida' : 'Despesa'}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-md border overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="w-[100px]">Data</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    Nenhum registro encontrado com esses filtros.
-                  </TableCell>
-                </TableRow>
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card className="p-6">
+            <h3 className="font-bold mb-4">Despesas por Categoria</h3>
+            <div className="h-[300px]">
+              {categoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie 
+                      data={categoryData} 
+                      dataKey="value" 
+                      nameKey="name" 
+                      cx="50%" 
+                      cy="50%" 
+                      outerRadius={80} 
+                      label={({ name }) => name}
+                    >
+                      {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
+                  </PieChart>
+                </ResponsiveContainer>
               ) : (
-                filteredItems.map((item, i) => (
-                  <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-xs font-medium">{formatDate(item.date)}</TableCell>
+                <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados</div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="font-bold mb-4">Resumo do Período</h3>
+            <div className="space-y-6">
+              <div className="flex justify-between items-end border-b pb-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Entradas</p>
+                  <p className="text-2xl font-bold text-success">{formatCurrency(totalIn)}</p>
+                </div>
+                <CheckCircle2 className="w-8 h-8 text-success/20" />
+              </div>
+              <div className="flex justify-between items-end border-b pb-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Saídas</p>
+                  <p className="text-2xl font-bold text-destructive">{formatCurrency(totalOut)}</p>
+                </div>
+                <Receipt className="w-8 h-8 text-destructive/20" />
+              </div>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-sm text-muted-foreground">Saldo Líquido</p>
+                  <p className={`text-2xl font-bold ${totalIn - totalOut >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(totalIn - totalOut)}
+                  </p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-xs font-bold text-primary">R$</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="p-6">
+          <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+            <h3 className="font-bold">Listagem Detalhada</h3>
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Buscar..." 
+                  className="pl-9 h-9 w-48" 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                />
+              </div>
+              <select 
+                className="h-9 px-3 rounded-md border bg-background text-sm"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="todos">Todos os Tipos</option>
+                <option value="receita">Receitas</option>
+                <option value="despesa">Despesas</option>
+                <option value="cartao">Cartão</option>
+                <option value="divida">Dívida</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs">{formatDate(item.date)}</TableCell>
                     <TableCell>
-                      <span className="font-semibold">{item.name}</span>
+                      <p className="font-medium text-sm">{item.name}</p>
                       <p className="text-[10px] text-muted-foreground">{item.category}</p>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {item.type === 'cartao' ? <CreditCard className="w-3 h-3" /> : 
-                         item.type === 'divida' ? <Receipt className="w-3 h-3" /> : 
-                         item.type === 'receita' ? <CheckCircle2 className="w-3 h-3 text-success" /> :
-                         <Clock className="w-3 h-3" />}
-                        <span className="capitalize">{item.type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] font-bold ${
-                          item.status === 'pago' ? 'border-success/50 text-success bg-success/5' :
-                          item.status === 'atrasado' ? 'border-destructive/50 text-destructive bg-destructive/5' :
-                          'border-warning/50 text-warning bg-warning/5'
-                        }`}
-                      >
-                        {item.type === 'receita' 
-                          ? (item.status === 'pago' ? 'Recebida' : 'Pendente')
-                          : (item.status === 'pago' ? 'Paga' : item.status === 'atrasado' ? 'Atrasada' : 'Pendente')
-                        }
+                      <Badge variant="outline" className="capitalize text-[10px]">
+                        {item.type}
                       </Badge>
                     </TableCell>
                     <TableCell className={`text-right font-bold ${item.type === 'receita' ? 'text-success' : ''}`}>
-                      {item.type === 'receita' ? '+' : '-'} {formatCurrency(Number(item.amount))}
+                      {item.type === 'receita' ? '+' : '-'}{formatCurrency(Number(item.amount || 0))}
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                ))}
+                {filteredItems.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      Nenhum registro encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      </div>
     </PageHeader>
   );
 };
-
-const accentClass = {
-  success: "text-success bg-success/10",
-  warning: "text-warning bg-warning/10",
-  destructive: "text-destructive bg-destructive/10",
-};
-const StatCard = ({ label, value, accent }: any) => (
-  <Card className="p-5">
-    <div className={`inline-flex px-2 py-1 rounded-md text-xs font-medium mb-2 ${accentClass[accent as keyof typeof accentClass]}`}>{label}</div>
-    <p className="text-2xl font-bold">{formatCurrency(value)}</p>
-  </Card>
-);
 
 export default Relatorios;
