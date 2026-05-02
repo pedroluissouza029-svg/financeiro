@@ -15,8 +15,7 @@ import { getFifthBusinessDay } from "@/lib/finance-utils";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obrigatório").max(100),
-  amount: z.number().nonnegative(),
-  expected_amount: z.number().nonnegative(),
+  amount: z.number().positive("Valor deve ser maior que zero"),
   received_date: z.string().min(1, "Data obrigatória"),
   income_type: z.enum(["salario", "freelance", "investimento", "outro"]),
   is_recurring: z.boolean(),
@@ -29,7 +28,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    name: "", amount: "", expected_amount: "", received_date: new Date().toISOString().slice(0, 10),
+    name: "", amount: "", received_date: new Date().toISOString().slice(0, 10),
     income_type: "salario" as const, is_recurring: false,
     status: "recebido" as const,
   });
@@ -38,17 +37,13 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
     if (open) {
       if (income) {
         setForm({
-          name: income.name, 
-          amount: income.amount.toString(), 
-          expected_amount: (income.expected_amount || income.amount).toString(),
-          received_date: income.received_date,
-          income_type: income.income_type as any, 
-          is_recurring: income.is_recurring,
+          name: income.name, amount: income.amount.toString(), received_date: income.received_date,
+          income_type: income.income_type as any, is_recurring: income.is_recurring,
           status: income.status || (new Date(income.received_date) <= new Date() ? "recebido" : "pendente"),
         });
       } else {
         setForm({ 
-          name: "", amount: "", expected_amount: "", received_date: new Date().toISOString().slice(0, 10), 
+          name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), 
           income_type: "salario", is_recurring: false, status: "recebido" 
         });
       }
@@ -57,30 +52,38 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const parsed = schema.parse({ ...form, amount: Number(form.amount || 0), expected_amount: Number(form.expected_amount || form.amount || 0) });
+      const parsed = schema.parse({ ...form, amount: Number(form.amount) });
+      const payload: any = {
+        name: parsed.name,
+        amount: parsed.amount,
+        received_date: parsed.received_date,
+        income_type: parsed.income_type,
+        is_recurring: parsed.is_recurring,
+        status: parsed.status,
+      };
+
       if (income) {
-        const { error } = await supabase.from("incomes").update({
-          name: parsed.name,
-          amount: parsed.amount,
-          expected_amount: parsed.expected_amount,
-          received_date: parsed.received_date,
-          income_type: parsed.income_type,
-          is_recurring: parsed.is_recurring,
-          status: parsed.status,
-        }).eq("id", income.id);
-        if (error) throw error;
+        const { error } = await supabase.from("incomes").update(payload).eq("id", income.id);
+        if (error) {
+          if (error.message?.includes("column \"status\"") || error.code === "42703") {
+            delete payload.status;
+            const { error: retryError } = await supabase.from("incomes").update(payload).eq("id", income.id);
+            if (retryError) throw retryError;
+          } else {
+            throw error;
+          }
+        }
       } else {
-        const { error } = await supabase.from("incomes").insert([{
-          user_id: user!.id,
-          name: parsed.name,
-          amount: parsed.amount,
-          expected_amount: parsed.expected_amount,
-          received_date: parsed.received_date,
-          income_type: parsed.income_type,
-          is_recurring: parsed.is_recurring,
-          status: parsed.status,
-        }]);
-        if (error) throw error;
+        const { error } = await supabase.from("incomes").insert([{ ...payload, user_id: user!.id }]);
+        if (error) {
+          if (error.message?.includes("column \"status\"") || error.code === "42703") {
+            delete payload.status;
+            const { error: retryError } = await supabase.from("incomes").insert([{ ...payload, user_id: user!.id }]);
+            if (retryError) throw retryError;
+          } else {
+            throw error;
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -102,15 +105,9 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Valor Esperado (R$)</Label>
-              <Input type="number" step="0.01" value={form.expected_amount} onChange={(e) => setForm({ ...form, expected_amount: e.target.value })} placeholder="0,00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Valor Recebido (R$)</Label>
+              <Label>Valor (R$)</Label>
               <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Data</Label>
               <div className="flex gap-2">
@@ -122,16 +119,16 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
                 )}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recebido">Recebido</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recebido">Recebido</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <Label htmlFor="rec">Receita recorrente</Label>

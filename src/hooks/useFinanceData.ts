@@ -11,7 +11,13 @@ export const useIncomes = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("incomes").select("*").order("received_date", { ascending: false });
       if (error) throw error;
-      return (data || []).filter(Boolean);
+      return (data || []).filter(Boolean).map(i => {
+        // Fallback: If status column is missing, infer it from date
+        if (!i.status) {
+          i.status = new Date(i.received_date) <= new Date() ? 'recebido' : 'pendente';
+        }
+        return i;
+      });
     },
   });
 };
@@ -67,7 +73,7 @@ export const useFinancialSummary = () => {
   const monthExpenses = expenses.filter((e) => isInCurrentMonth(e.due_date));
 
   const receivedIncomes = monthIncomes.filter((i) => i.status === "recebido").reduce((s, i) => s + Number(i.amount), 0);
-  const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.expected_amount || i.amount), 0);
+  const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.amount), 0);
   const totalIncome = receivedIncomes + pendingIncomes;
 
   const paidExpenses = monthExpenses.reduce((s, e) => s + Number(e.paid_amount || (e.status === "pago" ? e.amount : 0)), 0);
