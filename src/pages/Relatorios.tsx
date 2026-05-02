@@ -261,51 +261,108 @@ const Relatorios = () => {
           </div>
         </Card>
 
-        {/* Secondary Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-6 shadow-soft">
-            <h3 className="font-bold mb-4 tracking-tight">Composição por Categoria</h3>
-            <div className="h-[250px] flex items-center justify-center">
-              {stats.categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie 
-                      data={stats.categoryData} 
-                      dataKey="value" 
-                      nameKey="name" 
-                      cx="50%" cy="50%" 
-                      innerRadius={60} 
-                      outerRadius={80} 
-                      paddingAngle={5}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={false}
-                    >
-                      {stats.categoryData.map((entry, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => formatCurrency(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-muted-foreground text-sm">Sem dados para exibir</p>
-              )}
+        {/* Secondary Charts & Category Details */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="p-6 shadow-soft lg:col-span-2">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="w-full md:w-1/2">
+                <h3 className="font-bold mb-1 tracking-tight text-lg">Gastos por Categoria</h3>
+                <p className="text-xs text-muted-foreground mb-6">Distribuição percentual das suas saídas</p>
+                <div className="h-[280px] flex items-center justify-center">
+                  {stats.categoryData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie 
+                          data={stats.categoryData} 
+                          dataKey="value" 
+                          nameKey="name" 
+                          cx="50%" cy="50%" 
+                          innerRadius={70} 
+                          outerRadius={95} 
+                          paddingAngle={4}
+                          stroke="none"
+                        >
+                          {stats.categoryData.map((entry, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                          formatter={(v: any) => formatCurrency(v)} 
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">Sem dados</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full md:w-1/2 space-y-4 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
+                <h4 className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-4">Ranking de Categorias</h4>
+                {stats.categoryData.map((cat, i) => {
+                  const percent = (cat.value / stats.totalOut) * 100;
+                  return (
+                    <div key={i} className="group cursor-default">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                          <span className="text-sm font-semibold text-foreground/80 group-hover:text-primary transition-colors">{cat.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold block">{formatCurrency(cat.value)}</span>
+                          <span className="text-[10px] text-muted-foreground">{percent.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-1000 ease-out" 
+                          style={{ 
+                            width: `${percent}%`, 
+                            backgroundColor: COLORS[i % COLORS.length],
+                            opacity: 0.8
+                          }} 
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </Card>
 
           <Card className="p-6 shadow-soft">
-            <h3 className="font-bold mb-4 tracking-tight">Distribuição por Tipo</h3>
-            <div className="h-[250px]">
+            <h3 className="font-bold mb-1 tracking-tight text-lg">Resumo por Tipo</h3>
+            <p className="text-xs text-muted-foreground mb-6">Comparativo de fluxo</p>
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.typeData} layout="vertical" margin={{ left: 40, right: 40 }}>
+                <BarChart data={stats.typeData} layout="vertical" margin={{ left: 10, right: 30 }}>
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 600 }} width={80} />
-                  <Tooltip cursor={{ fill: 'transparent' }} formatter={(v: any) => formatCurrency(v)} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                  <Tooltip 
+                    cursor={{ fill: 'transparent' }} 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    formatter={(v: any) => formatCurrency(v)} 
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
                     {stats.typeData.map((entry, index) => (
                       <Cell key={index} fill={entry.name === 'Receita' ? '#10b981' : entry.name === 'Dívida' ? '#ef4444' : entry.name === 'Cartão' ? '#3b82f6' : '#6366f1'} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-4 space-y-2 border-t pt-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Saúde Financeira</span>
+                <span className={`font-bold ${stats.totalIn > stats.totalOut ? 'text-success' : 'text-destructive'}`}>
+                  {((stats.totalIn / stats.totalOut || 0) * 100).toFixed(0)}% cobertura
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ${stats.totalIn > stats.totalOut ? 'bg-success' : 'bg-destructive'}`} 
+                  style={{ width: `${Math.min(100, (stats.totalIn / stats.totalOut || 0) * 100)}%` }} 
+                />
+              </div>
             </div>
           </Card>
         </div>

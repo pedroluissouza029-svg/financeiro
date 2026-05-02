@@ -15,7 +15,8 @@ import { getFifthBusinessDay } from "@/lib/finance-utils";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obrigatório").max(100),
-  amount: z.number().positive("Valor deve ser maior que zero"),
+  amount: z.number().nonnegative(),
+  expected_amount: z.number().nonnegative(),
   received_date: z.string().min(1, "Data obrigatória"),
   income_type: z.enum(["salario", "freelance", "investimento", "outro"]),
   is_recurring: z.boolean(),
@@ -28,7 +29,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    name: "", amount: "", received_date: new Date().toISOString().slice(0, 10),
+    name: "", amount: "", expected_amount: "", received_date: new Date().toISOString().slice(0, 10),
     income_type: "salario" as const, is_recurring: false,
     status: "recebido" as const,
   });
@@ -37,13 +38,17 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
     if (open) {
       if (income) {
         setForm({
-          name: income.name, amount: income.amount.toString(), received_date: income.received_date,
-          income_type: income.income_type as any, is_recurring: income.is_recurring,
+          name: income.name, 
+          amount: income.amount.toString(), 
+          expected_amount: (income.expected_amount || income.amount).toString(),
+          received_date: income.received_date,
+          income_type: income.income_type as any, 
+          is_recurring: income.is_recurring,
           status: income.status || (new Date(income.received_date) <= new Date() ? "recebido" : "pendente"),
         });
       } else {
         setForm({ 
-          name: "", amount: "", received_date: new Date().toISOString().slice(0, 10), 
+          name: "", amount: "", expected_amount: "", received_date: new Date().toISOString().slice(0, 10), 
           income_type: "salario", is_recurring: false, status: "recebido" 
         });
       }
@@ -52,11 +57,12 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const parsed = schema.parse({ ...form, amount: Number(form.amount) });
+      const parsed = schema.parse({ ...form, amount: Number(form.amount || 0), expected_amount: Number(form.expected_amount || form.amount || 0) });
       if (income) {
         const { error } = await supabase.from("incomes").update({
           name: parsed.name,
           amount: parsed.amount,
+          expected_amount: parsed.expected_amount,
           received_date: parsed.received_date,
           income_type: parsed.income_type,
           is_recurring: parsed.is_recurring,
@@ -68,6 +74,7 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
           user_id: user!.id,
           name: parsed.name,
           amount: parsed.amount,
+          expected_amount: parsed.expected_amount,
           received_date: parsed.received_date,
           income_type: parsed.income_type,
           is_recurring: parsed.is_recurring,
@@ -95,42 +102,36 @@ export const IncomeFormDialog = ({ open, onOpenChange, income }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Valor (R$)</Label>
+              <Label>Valor Esperado (R$)</Label>
+              <Input type="number" step="0.01" value={form.expected_amount} onChange={(e) => setForm({ ...form, expected_amount: e.target.value })} placeholder="0,00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Recebido (R$)</Label>
               <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Data</Label>
               <div className="flex gap-2">
                 <Input type="date" value={form.received_date} onChange={(e) => setForm({ ...form, received_date: e.target.value })} />
                 {form.income_type === "salario" && (
                   <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, received_date: getFifthBusinessDay() })} title="Preencher com 5º dia útil">
-                    5º dia útil
+                    5º dia
                   </Button>
                 )}
               </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Tipo</Label>
-            <Select value={form.income_type} onValueChange={(v: any) => setForm({ ...form, income_type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="salario">Salário</SelectItem>
-                <SelectItem value="freelance">Freelance</SelectItem>
-                <SelectItem value="investimento">Investimento</SelectItem>
-                <SelectItem value="outro">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recebido">Recebido</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recebido">Recebido</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <Label htmlFor="rec">Receita recorrente</Label>

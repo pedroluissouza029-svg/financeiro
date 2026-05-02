@@ -67,7 +67,7 @@ export const useFinancialSummary = () => {
   const monthExpenses = expenses.filter((e) => isInCurrentMonth(e.due_date));
 
   const receivedIncomes = monthIncomes.filter((i) => i.status === "recebido").reduce((s, i) => s + Number(i.amount), 0);
-  const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.amount), 0);
+  const pendingIncomes = monthIncomes.filter((i) => i.status !== "recebido").reduce((s, i) => s + Number(i.expected_amount || i.amount), 0);
   const totalIncome = receivedIncomes + pendingIncomes;
 
   const paidExpenses = monthExpenses.filter((e) => e.status === "pago").reduce((s, e) => s + Number(e.amount), 0);

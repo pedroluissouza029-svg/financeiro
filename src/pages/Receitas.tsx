@@ -58,7 +58,12 @@ const Receitas = () => {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <p className="font-bold text-success">{formatCurrency(Number(i.amount))}</p>
+                    <p className="font-bold text-success leading-none">{formatCurrency(Number(i.amount))}</p>
+                    {Math.abs(Number(i.expected_amount || i.amount) - Number(i.amount)) > 0.01 && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Esperado: {formatCurrency(Number(i.expected_amount))}
+                      </p>
+                    )}
                   </div>
                   <Button
                     size="sm"
