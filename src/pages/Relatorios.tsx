@@ -3,11 +3,20 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { formatCurrency, isInCurrentMonth } from "@/lib/finance-utils";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Filter, Calendar, CreditCard, Receipt, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { formatDate } from "@/lib/finance-utils";
 
 const COLORS = ["hsl(152 72% 38%)", "hsl(160 65% 48%)", "hsl(38 95% 52%)", "hsl(0 78% 55%)", "hsl(220 9% 46%)", "hsl(200 80% 50%)", "hsl(280 60% 55%)", "hsl(20 80% 55%)", "hsl(340 75% 55%)", "hsl(60 70% 45%)"];
 
 const Relatorios = () => {
-  const { monthExpenses, totalIncome, paidExpenses, pendingExpenses, expenses } = useFinancialSummary();
+  const { monthExpenses, totalIncome, paidExpenses, pendingExpenses, expenses, debts, monthIncomes } = useFinancialSummary();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [filterType, setFilterType] = useState<string>("todos");
 
   const byCategory = monthExpenses.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
@@ -20,6 +29,29 @@ const Relatorios = () => {
     { name: "Receitas", valor: totalIncome },
     { name: "Despesas", valor: paidExpenses + pendingExpenses },
   ];
+
+  // Combined data for the detailed list
+  const allItems = [
+    ...expenses.map(e => {
+      const isCard = e.category === "Cartão de Crédito" || e.category === "Cartão";
+      return { ...e, type: isCard ? 'cartao' : 'despesa', date: e.due_date };
+    }),
+    ...debts.map(d => ({ 
+      ...d, 
+      type: 'divida', 
+      date: d.due_date, 
+      amount: d.installment_amount, 
+      status: d.status === 'atrasada' ? 'atrasado' : d.status === 'quitada' ? 'pago' : 'pendente' 
+    })),
+    ...monthIncomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
+  ];
+
+  const filteredItems = allItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "todos" || item.status === filterStatus;
+    const matchesType = filterType === "todos" || item.type === filterType;
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
   // Projeção: média dos últimos 3 meses (simplificada — usa atuais)
   const projection = (paidExpenses + pendingExpenses) * 1;
@@ -83,6 +115,119 @@ const Relatorios = () => {
               {formatCurrency(projIncome - projection)}
             </p>
           </div>
+        </div>
+      </Card>
+
+      {/* Detalhamento Module */}
+      <Card className="p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-bold">Detalhamento de Contas</h2>
+            <p className="text-sm text-muted-foreground">Filtre e visualize cada movimentação em detalhes</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={filterStatus === "todos" ? "default" : "outline"} 
+              className="cursor-pointer" 
+              onClick={() => setFilterStatus("todos")}
+            >Todos</Badge>
+            <Badge 
+              variant={filterStatus === "atrasado" ? "destructive" : "outline"} 
+              className="cursor-pointer" 
+              onClick={() => setFilterStatus("atrasado")}
+            >Atrasadas</Badge>
+            <Badge 
+              variant={filterStatus === "pago" ? "default" : "outline"} 
+              className="cursor-pointer bg-success hover:bg-success/90" 
+              onClick={() => setFilterStatus("pago")}
+            >Pagas</Badge>
+            <Badge 
+              variant={filterStatus === "pendente" ? "default" : "outline"} 
+              className="cursor-pointer bg-warning hover:bg-warning/90" 
+              onClick={() => setFilterStatus("pendente")}
+            >A vencer</Badge>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="relative col-span-1 md:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Buscar por nome..." 
+              className="pl-10" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 col-span-1 md:col-span-2">
+            {['todos', 'despesa', 'cartao', 'divida'].map((type) => (
+              <Badge 
+                key={type}
+                variant={filterType === type ? "secondary" : "outline"}
+                className="cursor-pointer capitalize flex-1 justify-center"
+                onClick={() => setFilterType(type)}
+              >
+                {type === 'todos' ? 'Tipos' : type === 'cartao' ? 'Cartão' : type === 'divida' ? 'Dívida' : 'Despesa'}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-md border overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="w-[100px]">Data</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                    Nenhum registro encontrado com esses filtros.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredItems.map((item, i) => (
+                  <TableRow key={i} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-xs font-medium">{formatDate(item.date)}</TableCell>
+                    <TableCell>
+                      <span className="font-semibold">{item.name}</span>
+                      <p className="text-[10px] text-muted-foreground">{item.category}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {item.type === 'cartao' ? <CreditCard className="w-3 h-3" /> : 
+                         item.type === 'divida' ? <Receipt className="w-3 h-3" /> : 
+                         item.type === 'receita' ? <CheckCircle2 className="w-3 h-3 text-success" /> :
+                         <Clock className="w-3 h-3" />}
+                        <span className="capitalize">{item.type}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] font-bold ${
+                          item.status === 'pago' ? 'border-success/50 text-success bg-success/5' :
+                          item.status === 'atrasado' ? 'border-destructive/50 text-destructive bg-destructive/5' :
+                          'border-warning/50 text-warning bg-warning/5'
+                        }`}
+                      >
+                        {item.status === 'pago' ? 'Paga' : item.status === 'atrasado' ? 'Atrasada' : 'Pendente'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-right font-bold ${item.type === 'receita' ? 'text-success' : ''}`}>
+                      {item.type === 'receita' ? '+' : '-'} {formatCurrency(Number(item.amount))}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </Card>
     </PageHeader>
