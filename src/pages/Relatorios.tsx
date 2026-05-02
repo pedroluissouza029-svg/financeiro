@@ -1,36 +1,31 @@
 import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
-import { formatCurrency, isInCurrentMonth } from "@/lib/finance-utils";
+import { formatCurrency, isInCurrentMonth, formatDate, parseDate } from "@/lib/finance-utils";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, Calendar, CreditCard, Receipt, AlertCircle, CheckCircle2, Clock } from "lucide-react";
-import { formatDate } from "@/lib/finance-utils";
+import { Search, Filter, Calendar, CreditCard, Receipt, AlertCircle, CheckCircle2, Clock, FileDown, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const COLORS = ["hsl(152 72% 38%)", "hsl(160 65% 48%)", "hsl(38 95% 52%)", "hsl(0 78% 55%)", "hsl(220 9% 46%)", "hsl(200 80% 50%)", "hsl(280 60% 55%)", "hsl(20 80% 55%)", "hsl(340 75% 55%)", "hsl(60 70% 45%)"];
 
 const Relatorios = () => {
-  const { monthExpenses, totalIncome, paidExpenses, pendingExpenses, expenses, debts, monthIncomes } = useFinancialSummary();
+  const { totalIncome: monthIncome, paidExpenses: monthPaid, pendingExpenses: monthPending, expenses, debts, incomes } = useFinancialSummary();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
   const [filterType, setFilterType] = useState<string>("todos");
+  
+  // Date range state - default to current month
+  const now = new Date();
+  const [startDate, setStartDate] = useState<string>(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
 
-  const byCategory = monthExpenses.reduce<Record<string, number>>((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
-    return acc;
-  }, {});
-  const categoryData = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
-
-  const overdue = expenses.filter(e => e.status === "atrasado").reduce((s, e) => s + Number(e.amount), 0);
-  const compareData = [
-    { name: "Receitas", valor: totalIncome },
-    { name: "Despesas", valor: paidExpenses + pendingExpenses },
-  ];
-
-  // Combined data for the detailed list
+  // Combined data for the detailed list with date filtering
   const allItems = [
     ...expenses.map(e => {
       const isCard = e.category === "Cartão de Crédito" || e.category === "Cartão";
@@ -43,22 +38,101 @@ const Relatorios = () => {
       amount: d.installment_amount, 
       status: d.status === 'atrasada' ? 'atrasado' : d.status === 'quitada' ? 'pago' : 'pendente' 
     })),
-    ...monthIncomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
+    ...incomes.map(i => ({ ...i, type: 'receita', date: i.received_date, status: 'pago' }))
   ];
 
-  const filteredItems = allItems.filter(item => {
+  const filteredByDate = allItems.filter(item => {
+    const itemDate = parseDate(item.date);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    return itemDate >= start && itemDate <= end;
+  });
+
+  const filteredItems = filteredByDate.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "todos" || item.status === filterStatus;
     const matchesType = filterType === "todos" || item.type === filterType;
     return matchesSearch && matchesStatus && matchesType;
   });
 
+  // Calculate stats based on filteredByDate
+  const totalIn = filteredByDate.filter(i => i.type === 'receita').reduce((s, i) => s + Number(i.amount), 0);
+  const totalOut = filteredByDate.filter(i => i.type !== 'receita').reduce((s, i) => s + Number(i.amount), 0);
+  const totalPaidOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pago').reduce((s, i) => s + Number(i.amount), 0);
+  const totalPendingOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'pendente').reduce((s, i) => s + Number(i.amount), 0);
+  const totalOverdueOut = filteredByDate.filter(i => i.type !== 'receita' && i.status === 'atrasado').reduce((s, i) => s + Number(i.amount), 0);
+
+  const byCategory = filteredByDate.filter(i => i.type !== 'receita').reduce<Record<string, number>>((acc, e) => {
+    acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
+    return acc;
+  }, {});
+  const categoryData = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
+
+  const compareData = [
+    { name: "Receitas", valor: totalIn },
+    { name: "Despesas", valor: totalOut },
+  ];
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const title = `Relatorio_Financeiro_${startDate}_a_${endDate}`;
+    
+    doc.setFontSize(18);
+    doc.text("Relatório Financeiro Detalhado", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Período: ${formatDate(startDate)} até ${formatDate(endDate)}`, 14, 30);
+    
+    doc.setFontSize(12);
+    doc.text(`Resumo: Receitas ${formatCurrency(totalIn)} | Despesas ${formatCurrency(totalOut)} | Saldo ${formatCurrency(totalIn - totalOut)}`, 14, 40);
+
+    const tableData = filteredItems.map(item => [
+      formatDate(item.date),
+      item.name,
+      item.type === 'cartao' ? 'Cartão' : item.type === 'divida' ? 'Dívida' : item.type === 'receita' ? 'Receita' : 'Despesa',
+      item.status === 'pago' ? 'Pago' : item.status === 'atrasado' ? 'Atrasado' : 'Pendente',
+      formatCurrency(Number(item.amount))
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Data', 'Nome', 'Tipo', 'Status', 'Valor']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+
+    doc.save(`${title}.pdf`);
+  };
+
   // Projeção: média dos últimos 3 meses (simplificada — usa atuais)
-  const projection = (paidExpenses + pendingExpenses) * 1;
-  const projIncome = totalIncome;
+  const projection = totalOut;
+  const projIncome = totalIn;
 
   return (
     <PageHeader title="Relatórios" description="Veja para onde seu dinheiro vai">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 bg-card p-4 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</label>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-40" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</label>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-40" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={exportPDF} variant="default" className="gap-2 shadow-soft">
+            <FileDown className="w-4 h-4" /> Exportar PDF
+          </Button>
+          <Button onClick={() => window.print()} variant="outline" className="gap-2">
+            <Printer className="w-4 h-4" /> Imprimir
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="p-5">
           <h3 className="font-semibold mb-4">Gastos por categoria</h3>
@@ -92,9 +166,9 @@ const Relatorios = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Contas pagas (mês)" value={paidExpenses} accent="success" />
-        <StatCard label="Contas pendentes" value={pendingExpenses} accent="warning" />
-        <StatCard label="Contas atrasadas" value={overdue} accent="destructive" />
+        <StatCard label="Contas pagas" value={totalPaidOut} accent="success" />
+        <StatCard label="Contas pendentes" value={totalPendingOut} accent="warning" />
+        <StatCard label="Contas atrasadas" value={totalOverdueOut} accent="destructive" />
       </div>
 
       <Card className="p-5">
